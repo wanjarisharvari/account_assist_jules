@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="main-content py-4">
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-0 rounded-lg">
+                    <div class="card-body py-3">
+                        <h2 class="mb-1">Welcome, {{ user.username }}!</h2>
+                        <p class="lead text-muted mb-0">This is your financial dashboard. Start a conversation to manage your finances.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8 mb-4 mb-md-0">
+                <div class="card shadow-sm border-0 rounded-lg h-100">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+                        <h4 class="mb-0 font-weight-bold">Financial Assistant</h4>
+                    </div>
+                    <div class="card-body d-flex flex-column p-0" style="height: 600px;">
+                        <div id="conversation" class="flex-grow-1 mb-0 overflow-auto p-4" style="background-color: #f8f9fa;">
+                            <!-- Messages will be displayed here -->
+                        </div>
+                        
+                        <form id="messageForm" class="mt-auto p-3 border-top">
+                            <div class="input-group">
+                                <textarea class="form-control border-right-0 rounded-pill-left" id="messageInput" placeholder="How can I help with your finances today?" rows="2" style="border-top-right-radius: 0; border-bottom-right-radius: 0;"></textarea>
+                                <button type="submit" class="btn btn-primary rounded-pill-right" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">
+                                    <i class="fas fa-paper-plane"></i>
+                                    <span>Send</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 rounded-lg h-100">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h4 class="mb-0 font-weight-bold">Recent Activity</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="recentActivity" class="p-2">
+                            <p class="text-muted mb-0 font-italic">Your recent financial activities will appear here...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
+    const conversation = document.getElementById('conversation');
+    let conversationId = null;
+    
+    // Auto-resize textarea as user types
+    messageInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        const maxHeight = 120; // Maximum height in pixels
+        this.style.height = (this.scrollHeight > maxHeight ? maxHeight : this.scrollHeight) + 'px';
+    });
+    
+    // Function to add a message to the conversation
+    function addMessage(content, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'mb-4 d-flex ' + (sender === 'USER' ? 'justify-content-end' : 'justify-content-start');
+        
+        const messageBubble = document.createElement('div');
+        
+        if (sender === 'USER') {
+            messageBubble.className = 'message-bubble user-message p-3 rounded-lg bg-primary text-white';
+        } else {
+            messageBubble.className = 'message-bubble ai-message p-3 rounded-lg bg-light border';
+        }
+        
+        messageBubble.style.maxWidth = '80%';
+        messageBubble.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        messageBubble.innerHTML = content;
+        
+        messageDiv.appendChild(messageBubble);
+        conversation.appendChild(messageDiv);
+        conversation.scrollTop = conversation.scrollHeight;
+    }
+    
+    // Function to send a message to the API
+    async function sendMessage(message) {
+        try {
+            // Add a typing indicator
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'mb-4 d-flex justify-content-start';
+            typingIndicator.id = 'typing-indicator';
+            
+            const typingBubble = document.createElement('div');
+            typingBubble.className = 'message-bubble ai-message p-3 rounded-lg bg-light border';
+            typingBubble.style.maxWidth = '80%';
+            typingBubble.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            typingBubble.innerHTML = '<div class="typing-dots"><span>.</span><span>.</span><span>.</span></div>';
+            
+            typingIndicator.appendChild(typingBubble);
+            conversation.appendChild(typingIndicator);
+            conversation.scrollTop = conversation.scrollHeight;
+            
+            // Get CSRF token from cookie
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            const csrftoken = getCookie('csrftoken');
+            
+            const response = await fetch('/api/messages/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                credentials: 'same-origin', // Include cookies (session auth)
+                body: JSON.stringify({
+                    content: message,
+                    conversation_id: conversationId
+                })
+            });
+            
+            // Remove typing indicator
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+            
+            if (!response.ok) {
+                throw new Error('Failed to send message');
+            }
+            
+            const data = await response.json();
+            conversationId = data.conversation_id;
+            
+            // Display AI response
+            addMessage(data.message, 'AI');
+            
+            // Handle pending transaction if present
+            if (data.has_pending_transaction) {
+                // You can add UI for transaction confirmation here
+                console.log('Pending transaction detected');
+            }
+            
+        } catch (error) {
+            // Remove typing indicator
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+            
+            console.error('Error:', error);
+            addMessage('Sorry, there was an error processing your message.', 'AI');
+        }
+    }
+    
+    // Handle form submission
+    messageForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const message = messageInput.value.trim();
+        
+        if (message) {
+            addMessage(message, 'USER');
+            messageInput.value = '';
+            messageInput.style.height = 'auto'; // Reset height
+            messageInput.focus();
+            sendMessage(message);
+        }
+    });
+    
+    // Make textarea expand as user types and handle enter key
+    messageInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            messageForm.dispatchEvent(new Event('submit'));
+        }
+    });
+    
+    // Welcome message
+    addMessage('Hello! I\'m your financial assistant. How can I help you today?', 'AI');
+    
+    // Add some CSS for animations and better styling
+    const style = document.createElement('style');
+    style.textContent = `
+        .message-bubble {
+            transition: all 0.3s ease;
+            animation: fadeIn 0.3s;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+        
+        .user-message {
+            border-bottom-right-radius: 0.5rem !important;
+            border-bottom-left-radius: 1.5rem !important;
+            border-top-left-radius: 1.5rem !important;
+            border-top-right-radius: 1.5rem !important;
+        }
+        
+        .ai-message {
+            border-bottom-right-radius: 1.5rem !important;
+            border-bottom-left-radius: 0.5rem !important;
+            border-top-left-radius: 1.5rem !important;
+            border-top-right-radius: 1.5rem !important;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .typing-dots span {
+            animation: typing 1.4s infinite;
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #888;
+            margin: 0 2px;
+        }
+        
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0); }
+        }
+        
+        .rounded-pill-left {
+            border-top-left-radius: 50rem !important;
+            border-bottom-left-radius: 50rem !important;
+        }
+        
+        .rounded-pill-right {
+            border-top-right-radius: 50rem !important;
+            border-bottom-right-radius: 50rem !important;
+        }
+        
+        #conversation::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #conversation::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        #conversation::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 10px;
+        }
+        
+        #conversation::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
+        
+        #messageInput {
+            min-height: 44px;
+            max-height: 120px;
+            overflow-y: auto;
+            resize: none;
+        }
+        
+        #messageInput:focus {
+            box-shadow: none;
+            border-color: #ced4da;
+        }
+        
+        .send-btn {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+        }
+        
+        .send-btn:active {
+            transform: translateY(0);
+        }
+        
+        .send-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: inherit;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .send-btn:hover::before {
+            transform: translateX(0);
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}
