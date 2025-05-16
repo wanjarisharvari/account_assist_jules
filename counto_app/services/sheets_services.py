@@ -165,185 +165,185 @@ class GoogleSheetsService:
             print(f"Error adding transaction to Google Sheets: {e}")
             return False
     
-    def query_transactions(self, query_params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Query transactions based on various parameters
+    # def query_transactions(self, query_params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    #     """
+    #     Query transactions based on various parameters
         
-        Example query_params:
-        {
-            'category': 'Marketing',
-            'start_date': '2023-01-01',
-            'end_date': '2023-12-31',
-            'min_amount': 100,
-            'max_amount': 1000,
-            'time_period': 'last_week'  # New parameter for time-based queries
-        }
-        """
-        # Get all transactions
-        all_transactions = self.get_all_transactions()
-        filtered_transactions = []
+    #     Example query_params:
+    #     {
+    #         'category': 'Marketing',
+    #         'start_date': '2023-01-01',
+    #         'end_date': '2023-12-31',
+    #         'min_amount': 100,
+    #         'max_amount': 1000,
+    #         'time_period': 'last_week'  # New parameter for time-based queries
+    #     }
+    #     """
+    #     # Get all transactions
+    #     all_transactions = self.get_all_transactions()
+    #     filtered_transactions = []
         
-        # Process time-based parameters
-        start_date = None
-        end_date = None
-        today = datetime.now().date()
+    #     # Process time-based parameters
+    #     start_date = None
+    #     end_date = None
+    #     today = datetime.now().date()
         
-        # Handle time period queries like "last week", "this month", etc.
-        if 'time_period' in query_params:
-            time_period = query_params['time_period'].lower()
+    #     # Handle time period queries like "last week", "this month", etc.
+    #     if 'time_period' in query_params:
+    #         time_period = query_params['time_period'].lower()
             
-            # Handle various time periods
-            if time_period in ['today', 'this_day']:
-                start_date = today
-                end_date = today
-            elif time_period in ['yesterday']:
-                start_date = today - timedelta(days=1)
-                end_date = today - timedelta(days=1)
-            elif time_period in ['this_week', 'current_week']:
-                # Start of current week (Monday)
-                start_date = today - timedelta(days=today.weekday())
-                end_date = today
-            elif time_period in ['last_week', 'previous_week']:
-                # Start of last week (Monday)
-                start_date = today - timedelta(days=today.weekday() + 7)
-                end_date = today - timedelta(days=today.weekday() + 1)
-            elif time_period in ['this_month', 'current_month']:
-                # Start of current month
-                start_date = today.replace(day=1)
-                end_date = today
-            elif time_period in ['last_month', 'previous_month']:
-                # Last month
-                if today.month == 1:  # January
-                    start_date = today.replace(year=today.year-1, month=12, day=1)
-                    end_date = today.replace(year=today.year-1, month=12, day=31)
-                else:
-                    start_date = today.replace(month=today.month-1, day=1)
-                    # End of last month
-                    if today.month == 3:  # March, handle February
-                        if (today.year % 4 == 0 and today.year % 100 != 0) or (today.year % 400 == 0):  # Leap year
-                            end_date = today.replace(month=2, day=29)
-                        else:
-                            end_date = today.replace(month=2, day=28)
-                    else:
-                        # Last day of the previous month
-                        last_day = (today.replace(day=1) - timedelta(days=1)).day
-                        end_date = today.replace(month=today.month-1, day=last_day)
-            elif time_period in ['this_year', 'current_year']:
-                # Start of current year
-                start_date = today.replace(month=1, day=1)
-                end_date = today
-            elif time_period in ['last_year', 'previous_year']:
-                # Last year
-                start_date = today.replace(year=today.year-1, month=1, day=1)
-                end_date = today.replace(year=today.year-1, month=12, day=31)
-            elif time_period in ['last_30_days', 'past_30_days', 'month']:
-                start_date = today - timedelta(days=30)
-                end_date = today
-            elif time_period in ['last_90_days', 'past_90_days', 'quarter']:
-                start_date = today - timedelta(days=90)
-                end_date = today
-            elif time_period in ['last_180_days', 'past_180_days', 'half_year']:
-                start_date = today - timedelta(days=180)
-                end_date = today
-            elif time_period in ['last_365_days', 'past_365_days', 'year']:
-                start_date = today - timedelta(days=365)
-                end_date = today
+    #         # Handle various time periods
+    #         if time_period in ['today', 'this_day']:
+    #             start_date = today
+    #             end_date = today
+    #         elif time_period in ['yesterday']:
+    #             start_date = today - timedelta(days=1)
+    #             end_date = today - timedelta(days=1)
+    #         elif time_period in ['this_week', 'current_week']:
+    #             # Start of current week (Monday)
+    #             start_date = today - timedelta(days=today.weekday())
+    #             end_date = today
+    #         elif time_period in ['last_week', 'previous_week']:
+    #             # Start of last week (Monday)
+    #             start_date = today - timedelta(days=today.weekday() + 7)
+    #             end_date = today - timedelta(days=today.weekday() + 1)
+    #         elif time_period in ['this_month', 'current_month']:
+    #             # Start of current month
+    #             start_date = today.replace(day=1)
+    #             end_date = today
+    #         elif time_period in ['last_month', 'previous_month']:
+    #             # Last month
+    #             if today.month == 1:  # January
+    #                 start_date = today.replace(year=today.year-1, month=12, day=1)
+    #                 end_date = today.replace(year=today.year-1, month=12, day=31)
+    #             else:
+    #                 start_date = today.replace(month=today.month-1, day=1)
+    #                 # End of last month
+    #                 if today.month == 3:  # March, handle February
+    #                     if (today.year % 4 == 0 and today.year % 100 != 0) or (today.year % 400 == 0):  # Leap year
+    #                         end_date = today.replace(month=2, day=29)
+    #                     else:
+    #                         end_date = today.replace(month=2, day=28)
+    #                 else:
+    #                     # Last day of the previous month
+    #                     last_day = (today.replace(day=1) - timedelta(days=1)).day
+    #                     end_date = today.replace(month=today.month-1, day=last_day)
+    #         elif time_period in ['this_year', 'current_year']:
+    #             # Start of current year
+    #             start_date = today.replace(month=1, day=1)
+    #             end_date = today
+    #         elif time_period in ['last_year', 'previous_year']:
+    #             # Last year
+    #             start_date = today.replace(year=today.year-1, month=1, day=1)
+    #             end_date = today.replace(year=today.year-1, month=12, day=31)
+    #         elif time_period in ['last_30_days', 'past_30_days', 'month']:
+    #             start_date = today - timedelta(days=30)
+    #             end_date = today
+    #         elif time_period in ['last_90_days', 'past_90_days', 'quarter']:
+    #             start_date = today - timedelta(days=90)
+    #             end_date = today
+    #         elif time_period in ['last_180_days', 'past_180_days', 'half_year']:
+    #             start_date = today - timedelta(days=180)
+    #             end_date = today
+    #         elif time_period in ['last_365_days', 'past_365_days', 'year']:
+    #             start_date = today - timedelta(days=365)
+    #             end_date = today
         
-        # Override with explicit start/end dates if provided
-        if 'start_date' in query_params:
-            try:
-                start_date = datetime.strptime(query_params['start_date'], '%Y-%m-%d').date()
-            except Exception as e:
-                print(f"Error parsing start_date: {e}")
+    #     # Override with explicit start/end dates if provided
+    #     if 'start_date' in query_params:
+    #         try:
+    #             start_date = datetime.strptime(query_params['start_date'], '%Y-%m-%d').date()
+    #         except Exception as e:
+    #             print(f"Error parsing start_date: {e}")
                 
-        if 'end_date' in query_params:
-            try:
-                end_date = datetime.strptime(query_params['end_date'], '%Y-%m-%d').date()
-            except Exception as e:
-                print(f"Error parsing end_date: {e}")
+    #     if 'end_date' in query_params:
+    #         try:
+    #             end_date = datetime.strptime(query_params['end_date'], '%Y-%m-%d').date()
+    #         except Exception as e:
+    #             print(f"Error parsing end_date: {e}")
         
-        # Filter transactions based on query parameters
-        for transaction in all_transactions:
-            include = True
+    #     # Filter transactions based on query parameters
+    #     for transaction in all_transactions:
+    #         include = True
             
-            # Filter by category
-            if 'category' in query_params and transaction.get('category'):
-                if query_params['category'].lower() not in transaction['category'].lower():
-                    include = False
+    #         # Filter by category
+    #         if 'category' in query_params and transaction.get('category'):
+    #             if query_params['category'].lower() not in transaction['category'].lower():
+    #                 include = False
                     
-            # Filter by description
-            if 'description' in query_params and transaction.get('description'):
-                if query_params['description'].lower() not in transaction['description'].lower():
-                    include = False
+    #         # Filter by description
+    #         if 'description' in query_params and transaction.get('description'):
+    #             if query_params['description'].lower() not in transaction['description'].lower():
+    #                 include = False
             
-            # Filter by amount range
-            if 'min_amount' in query_params and transaction.get('amount'):
-                try:
-                    amount = float(str(transaction['amount']).replace('$', '').replace(',', ''))
-                    if amount < float(query_params['min_amount']):
-                        include = False
-                except Exception as e:
-                    print(f"Error parsing min_amount: {e}")
+    #         # Filter by amount range
+    #         if 'min_amount' in query_params and transaction.get('amount'):
+    #             try:
+    #                 amount = float(str(transaction['amount']).replace('$', '').replace(',', ''))
+    #                 if amount < float(query_params['min_amount']):
+    #                     include = False
+    #             except Exception as e:
+    #                 print(f"Error parsing min_amount: {e}")
                     
-            if 'max_amount' in query_params and transaction.get('amount'):
-                try:
-                    amount = float(str(transaction['amount']).replace('$', '').replace(',', ''))
-                    if amount > float(query_params['max_amount']):
-                        include = False
-                except Exception as e:
-                    print(f"Error parsing max_amount: {e}")
+    #         if 'max_amount' in query_params and transaction.get('amount'):
+    #             try:
+    #                 amount = float(str(transaction['amount']).replace('$', '').replace(',', ''))
+    #                 if amount > float(query_params['max_amount']):
+    #                     include = False
+    #             except Exception as e:
+    #                 print(f"Error parsing max_amount: {e}")
             
-            # Filter by date range
-            if start_date and isinstance(transaction.get('date'), datetime):
-                if transaction['date'].date() < start_date:
-                    include = False
-            elif start_date and isinstance(transaction.get('date'), str):
-                # Try to parse the date string
-                try:
-                    for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']:
-                        try:
-                            date_obj = datetime.strptime(transaction['date'], fmt).date()
-                            if date_obj < start_date:
-                                include = False
-                            break
-                        except ValueError:
-                            continue
-                except Exception as e:
-                    print(f"Error parsing transaction date for start_date filtering: {e}")
+    #         # Filter by date range
+    #         if start_date and isinstance(transaction.get('date'), datetime):
+    #             if transaction['date'].date() < start_date:
+    #                 include = False
+    #         elif start_date and isinstance(transaction.get('date'), str):
+    #             # Try to parse the date string
+    #             try:
+    #                 for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']:
+    #                     try:
+    #                         date_obj = datetime.strptime(transaction['date'], fmt).date()
+    #                         if date_obj < start_date:
+    #                             include = False
+    #                         break
+    #                     except ValueError:
+    #                         continue
+    #             except Exception as e:
+    #                 print(f"Error parsing transaction date for start_date filtering: {e}")
                     
-            if end_date and isinstance(transaction.get('date'), datetime):
-                if transaction['date'].date() > end_date:
-                    include = False
-            elif end_date and isinstance(transaction.get('date'), str):
-                # Try to parse the date string
-                try:
-                    for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']:
-                        try:
-                            date_obj = datetime.strptime(transaction['date'], fmt).date()
-                            if date_obj > end_date:
-                                include = False
-                            break
-                        except ValueError:
-                            continue
-                except Exception as e:
-                    print(f"Error parsing transaction date for end_date filtering: {e}")
+    #         if end_date and isinstance(transaction.get('date'), datetime):
+    #             if transaction['date'].date() > end_date:
+    #                 include = False
+    #         elif end_date and isinstance(transaction.get('date'), str):
+    #             # Try to parse the date string
+    #             try:
+    #                 for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']:
+    #                     try:
+    #                         date_obj = datetime.strptime(transaction['date'], fmt).date()
+    #                         if date_obj > end_date:
+    #                             include = False
+    #                         break
+    #                     except ValueError:
+    #                         continue
+    #             except Exception as e:
+    #                 print(f"Error parsing transaction date for end_date filtering: {e}")
                     
-            # Filter by transaction type
-            if 'transaction_type' in query_params and transaction.get('transaction_type'):
-                if query_params['transaction_type'].upper() != transaction['transaction_type'].upper():
-                    include = False
+    #         # Filter by transaction type
+    #         if 'transaction_type' in query_params and transaction.get('transaction_type'):
+    #             if query_params['transaction_type'].upper() != transaction['transaction_type'].upper():
+    #                 include = False
                     
-            # Filter by payment method
-            if 'payment_method' in query_params and transaction.get('payment_method'):
-                if query_params['payment_method'].lower() not in transaction['payment_method'].lower():
-                    include = False
+    #         # Filter by payment method
+    #         if 'payment_method' in query_params and transaction.get('payment_method'):
+    #             if query_params['payment_method'].lower() not in transaction['payment_method'].lower():
+    #                 include = False
                     
-            # Filter by party
-            if 'party' in query_params and transaction.get('party'):
-                if query_params['party'].lower() not in transaction['party'].lower():
-                    include = False
+    #         # Filter by party
+    #         if 'party' in query_params and transaction.get('party'):
+    #             if query_params['party'].lower() not in transaction['party'].lower():
+    #                 include = False
             
-            if include:
-                filtered_transactions.append(transaction)
+    #         if include:
+    #             filtered_transactions.append(transaction)
                 
-        return filtered_transactions
+    #     return filtered_transactions

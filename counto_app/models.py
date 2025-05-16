@@ -36,13 +36,13 @@ class Transaction(models.Model):
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateField()
-    description = models.CharField(max_length=255)
+    description = models.CharField(max_length=500)
     category = models.CharField(max_length=100)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     transaction_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    payment_method = models.CharField(max_length=50, blank=True, null=True)
-    reference_number = models.CharField(max_length=50, blank=True, null=True)
-    party = models.CharField(max_length=100, blank=True, null=True)
+    payment_method = models.CharField(max_length=500, blank=True, null=True)
+    reference_number = models.CharField(max_length=500, blank=True, null=True)
+    party = models.CharField(max_length=500, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

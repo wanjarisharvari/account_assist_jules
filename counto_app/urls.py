@@ -14,5 +14,5 @@ urlpatterns = [
     path('conversations/', ConversationView.as_view(), name='conversations'),
     path('conversations/<int:conversation_id>/messages/', MessageView.as_view(), name='conversation_messages'),
     path('messages/', MessageView.as_view(), name='messages'),
-    path('transactions/confirm/', TransactionConfirmView.as_view(), name='confirm_transaction'),
+    #path('transactions/confirm/', TransactionConfirmView.as_view(), name='confirm_transaction'),
 ]

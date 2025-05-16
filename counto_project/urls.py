@@ -41,7 +41,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('counto_app.urls')),
     path('', include('counto_app.urls')),  # Include app URLs at root
-    path('', views.home, name='home'),  # Add home view as the root URL
+    # path('', views.home, name='home'),  # Add home view as the root URL
     # path('api/dashboard/', DashboardView.as_view(), name='dashboard'),
     # path('api/query/', QueryView.as_view(), name='query'),
     # path('api/auth/', include('rest_framework.urls')),
