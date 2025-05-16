@@ -1,65 +1,177 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="main-content py-4">
-    <div class="container">
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card shadow-sm border-0 rounded-lg">
-                    <div class="card-body py-3">
-                        <h2 class="mb-1">Welcome, {{ user.username }}!</h2>
-                        <p class="lead text-muted mb-0">This is your financial dashboard. Start a conversation to manage your finances.</p>
-                    </div>
-                </div>
-            </div>
+<div class="d-flex">
+    <!-- Side Navbar -->
+    <div class="side-navbar bg-dark text-white shadow" id="sideNavbar">
+        <div class="side-navbar-header p-3 border-bottom border-secondary">
+            <h4 class="mb-0 d-flex align-items-center">
+                <i class="fas fa-chart-line mr-2"></i>
+                
+            </h4>
         </div>
         
-        <div class="row">
-            <div class="col-md-8 mb-4 mb-md-0">
-                <div class="card shadow-sm border-0 rounded-lg h-100">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
-                        <h4 class="mb-0 font-weight-bold">Financial Assistant</h4>
-                    </div>
-                    <div class="card-body d-flex flex-column p-0" style="height: 600px;">
-                        <div id="conversation" class="flex-grow-1 mb-0 overflow-auto p-4" style="background-color: #f8f9fa;">
-                            <!-- Messages will be displayed here -->
-                        </div>
-                        
-                        <form id="messageForm" class="mt-auto p-3 border-top">
-                            <div class="input-group">
-                                <textarea class="form-control border-right-0 rounded-pill-left" id="messageInput" placeholder="How can I help with your finances today?" rows="2" style="border-top-right-radius: 0; border-bottom-right-radius: 0;"></textarea>
-                                <button type="submit" class="btn btn-primary rounded-pill-right" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">
-                                    <i class="fas fa-paper-plane"></i>
-                                    <span>Send</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+        <div class="p-3">
+            <div class="user-profile mb-4 text-center">
+                <div class="user-avatar mb-2 mx-auto">
+                    <i class="fas fa-user-circle fa-3x"></i>
                 </div>
+                <h6 class="mb-1">{{ user.username }}</h6>
+                <p class="text-muted small mb-0"></p>
             </div>
             
-            <div class="col-md-4">
-                <div class="card shadow-sm border-0 rounded-lg h-100">
-                    <div class="card-header bg-primary text-white py-3">
-                        <h4 class="mb-0 font-weight-bold">Recent Activity</h4>
+            <ul class="nav-menu list-unstyled mb-0">
+                <li class="nav-item active">
+                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
+                        <i class="fas fa-home fa-fw mr-3"></i>
+                        <span>Chat</span>
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2" 
+                       data-toggle="collapse" data-target="#chatHistorySubmenu">
+                        <i class="fas fa-history fa-fw mr-3"></i>
+                        <span>Chat History</span>
+                        <i class="fas fa-chevron-down ml-auto"></i>
+                    </a>
+                    <div class="collapse" id="chatHistorySubmenu">
+                        <ul class="nav-submenu list-unstyled pl-4">
+                            <li class="chat-history-item">
+                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
+                                    <i class="fas fa-comment-dots fa-fw mr-2"></i>
+                                    <span>Budget Planning</span>
+                                    <span class="badge badge-light ml-auto">2d</span>
+                                </a>
+                            </li>
+                            <li class="chat-history-item">
+                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
+                                    <i class="fas fa-comment-dots fa-fw mr-2"></i>
+                                    <span>Investment Advice</span>
+                                    <span class="badge badge-light ml-auto">5d</span>
+                                </a>
+                            </li>
+                            <li class="view-all">
+                                <a href="#" class="nav-link text-center small p-2">
+                                    <span>View All History</span>
+                                </a>
+                            </li>
+                        </ul>
                     </div>
-                    <div class="card-body">
-                        <div id="recentActivity" class="p-2">
-                            <p class="text-muted mb-0 font-italic">Your recent financial activities will appear here...</p>
+                </li>
+                
+                <li class="nav-item">
+                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2" 
+                       data-toggle="collapse" data-target="#documentStoreSubmenu">
+                        <i class="fas fa-folder fa-fw mr-3"></i>
+                        <span>Document Store</span>
+                        <i class="fas fa-chevron-down ml-auto"></i>
+                    </a>
+                    <div class="collapse" id="documentStoreSubmenu">
+                        <ul class="nav-submenu list-unstyled pl-4">
+                            <li class="document-item">
+                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
+                                    <i class="fas fa-file-alt fa-fw mr-2"></i>
+                                    <span>Budget Report</span>
+                                </a>
+                            </li>
+                            <li class="document-item">
+                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
+                                    <i class="fas fa-file-invoice-dollar fa-fw mr-2"></i>
+                                    <span>Tax Documents</span>
+                                </a>
+                            </li>
+                            <li class="document-item">
+                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
+                                    <i class="fas fa-file-upload fa-fw mr-2"></i>
+                                    <span>Upload New</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+                
+                <li class="nav-item">
+                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
+                        <i class="fas fa-chart-bar fa-fw mr-3"></i>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+                
+                <li class="nav-item">
+                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
+                        <i class="fas fa-cog fa-fw mr-3"></i>
+                        <span>Settings</span>
+                    </a>
+                </li>
+                
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Main Content Area -->
+    <div class="content-wrapper flex-grow-1">
+        <section class="main-content py-4">
+            <div class="container-fluid px-4">
+                <!-- Toggle Button for Mobile -->
+                <button id="sidebarToggleBtn" class="btn btn-primary btn-sm mb-3 d-md-none">
+                    <i class="fas fa-bars"></i>
+                </button>
+                
+                <!-- Header removed as requested -->
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card shadow-sm border-0 rounded-lg h-100">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+                                <h4 class="mb-0 font-weight-bold">Financial Assistant</h4>
+                            </div>
+                            <div class="card-body d-flex flex-column p-0" style="height: 600px;">
+                                <div id="conversation" class="flex-grow-1 mb-0 overflow-auto p-4" style="background-color: #f8f9fa;">
+                                    <!-- Messages will be displayed here -->
+                                </div>
+                                
+                                <form id="messageForm" class="mt-auto p-3 border-top">
+                                    <div class="input-group">
+                                        <textarea class="form-control border-right-0 rounded-pill-left" id="messageInput" placeholder="How can I help with your finances today?" rows="2" style="border-top-right-radius: 0; border-bottom-right-radius: 0;"></textarea>
+                                        <button type="submit" class="btn btn-primary rounded-pill-right send-btn" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">
+                                            <i class="fas fa-paper-plane"></i>
+                                            <span>Send</span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
-</section>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const messageForm = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageInput');
     const conversation = document.getElementById('conversation');
+    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+    const sideNavbar = document.getElementById('sideNavbar');
     let conversationId = null;
+    
+    // Sidebar toggle for mobile
+    sidebarToggleBtn.addEventListener('click', function() {
+        sideNavbar.classList.toggle('active');
+    });
+    
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(event) {
+        const isClickInsideNavbar = sideNavbar.contains(event.target);
+        const isClickOnToggleBtn = sidebarToggleBtn.contains(event.target);
+        
+        if (!isClickInsideNavbar && !isClickOnToggleBtn && window.innerWidth < 768 && sideNavbar.classList.contains('active')) {
+            sideNavbar.classList.remove('active');
+        }
+    });
     
     // Auto-resize textarea as user types
     messageInput.addEventListener('input', function() {
@@ -154,6 +266,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Display AI response
             addMessage(data.message, 'AI');
             
+            // If this is a new conversation, add it to the chat history
+            if (data.is_new_conversation) {
+                addConversationToHistory(data.conversation_id, message);
+            }
+            
             // Handle pending transaction if present
             if (data.has_pending_transaction) {
                 // You can add UI for transaction confirmation here
@@ -170,6 +287,45 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error:', error);
             addMessage('Sorry, there was an error processing your message.', 'AI');
         }
+    }
+    
+    // Function to add new conversation to history sidebar
+    function addConversationToHistory(id, title) {
+        // Get first few words of message for the title
+        const shortTitle = title.split(' ').slice(0, 3).join(' ') + (title.split(' ').length > 3 ? '...' : '');
+        
+        const chatHistorySubmenu = document.getElementById('chatHistorySubmenu');
+        const viewAllItem = chatHistorySubmenu.querySelector('.view-all');
+        
+        // Create new history item
+        const newHistoryItem = document.createElement('li');
+        newHistoryItem.className = 'chat-history-item';
+        newHistoryItem.innerHTML = `
+            <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1" data-conversation-id="${id}">
+                <i class="fas fa-comment-dots fa-fw mr-2"></i>
+                <span>${shortTitle}</span>
+                <span class="badge badge-light ml-auto">now</span>
+            </a>
+        `;
+        
+        // Insert before "View All" link
+        if (viewAllItem) {
+            chatHistorySubmenu.insertBefore(newHistoryItem, viewAllItem);
+        } else {
+            chatHistorySubmenu.appendChild(newHistoryItem);
+        }
+        
+        // Show the submenu if it's not already visible
+        if (!chatHistorySubmenu.classList.contains('show')) {
+            chatHistorySubmenu.classList.add('show');
+        }
+        
+        // Add click event to load this conversation
+        newHistoryItem.querySelector('a').addEventListener('click', function(e) {
+            e.preventDefault();
+            // Here you would load the conversation based on its ID
+            // loadConversation(id);
+        });
     }
     
     // Handle form submission
@@ -200,6 +356,87 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add some CSS for animations and better styling
     const style = document.createElement('style');
     style.textContent = `
+        /* Chat Container Styles */
+        #conversation {
+            max-height: 400px; /* Adjust the height as needed */
+            overflow-y: auto;
+        }
+
+        /* Side Navbar Styles */
+        .side-navbar {
+            width: 280px;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            left: 0;
+            transition: all 0.3s ease;
+            background-color: #2c3e50;
+            background-color: #2c3e50 !important;
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .side-navbar-header {
+            height: 70px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        .nav-menu .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            transition: all 0.2s ease;
+        }
+        
+        .nav-menu .nav-link:hover, 
+        .nav-menu .nav-item.active .nav-link {
+            color: #fff;
+            background-color: #2c3e50;
+        }
+        
+        .nav-submenu .nav-link {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+        
+        .nav-submenu .nav-link:hover {
+            color: #fff;
+            background-color:  #2c3e50;
+        }
+        
+        /* Content wrapper */
+        .content-wrapper {
+            min-height: 100vh;
+            transition: all 0.3s ease;
+        }
+        
+        /* Mobile Styles */
+        @media (max-width: 767.98px) {
+            .side-navbar {
+                position: fixed;
+                left: -280px;
+                box-shadow: 5px 0 15px  #2c3e50;
+            }
+            
+            .side-navbar.active {
+                left: 0;
+            }
+            
+            .content-wrapper {
+                margin-left: 0;
+            }
+        }
+        
+        /* Message Styles */
         .message-bubble {
             transition: all 0.3s ease;
             animation: fadeIn 0.3s;
@@ -319,6 +556,24 @@ document.addEventListener('DOMContentLoaded', function() {
         
         .send-btn:hover::before {
             transform: translateX(0);
+        }
+        
+        /* Scrollbar for sidebar */
+        .side-navbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .side-navbar::-webkit-scrollbar-track {
+            background:  #2c3e50;
+        }
+        
+        .side-navbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+        
+        .side-navbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
     `;
     document.head.appendChild(style);
