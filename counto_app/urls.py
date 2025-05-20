@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import (ConversationView, MessageView, TransactionConfirmView,
-                    home, login_view, logout_view, register_view, dashboard)
+from .views import (ConversationView, MessageView, home, 
+                    login_view, logout_view, register_view, dashboard)
 
 urlpatterns = [
     # Web UI routes

@@ -63,3 +63,73 @@ class PendingTransaction(models.Model):
     
     def __str__(self):
         return f"Pending: {self.description if self.description else 'New Transaction'}"
+
+
+# class Customer(models.Model):
+#     user = models.ForeignKey(User, on_delete=models.CASCADE)
+#     name = models.CharField(max_length=255)
+#     email = models.EmailField(blank=True, null=True)
+#     phone = models.CharField(max_length=20, blank=True, null=True)
+#     gst_number = models.CharField(max_length=20, blank=True, null=True)
+#     address = models.TextField(blank=True, null=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     def __str__(self):
+#         return self.name
+
+
+# class Vendor(models.Model):
+#     user = models.ForeignKey(User, on_delete=models.CASCADE)
+#     name = models.CharField(max_length=255)
+#     email = models.EmailField(blank=True, null=True)
+#     phone = models.CharField(max_length=20, blank=True, null=True)
+#     gst_number = models.CharField(max_length=20, blank=True, null=True)
+#     address = models.TextField(blank=True, null=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     def __str__(self):
+#         return self.name
+
+
+# class Transaction(models.Model):
+#     TYPE_CHOICES = [
+#         ('INCOME', 'Income'),
+#         ('EXPENSE', 'Expense'),
+#     ]
+
+#     STATUS_CHOICES = [
+#         ('PENDING', 'Pending'),
+#         ('PARTIAL', 'Partial'),
+#         ('PAID', 'Paid'),
+#     ]
+
+#     user = models.ForeignKey(User, on_delete=models.CASCADE)
+#     date = models.DateField()
+#     description = models.CharField(max_length=255)
+#     category = models.CharField(max_length=100, blank=True)
+#     transaction_type = models.CharField(max_length=7, choices=TYPE_CHOICES)
+
+#     expected_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+#     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
+#     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PAID')
+
+#     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True)
+#     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True)
+
+#     payment_method = models.CharField(max_length=100, blank=True, null=True)
+#     reference_number = models.CharField(max_length=100, blank=True, null=True)
+
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     def __str__(self):
+#         return f"{self.transaction_type} - ₹{self.paid_amount}/{self.expected_amount or self.paid_amount} - {self.description}"
+
+#     def update_payment_status(self):
+#         if self.paid_amount == 0:
+#             self.status = 'PENDING'
+#         elif self.paid_amount < (self.expected_amount or self.paid_amount):
+#             self.status = 'PARTIAL'
+#         else:
+#             self.status = 'PAID'
+#         self.save()
