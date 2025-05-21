@@ -685,17 +685,28 @@ class GeminiService:
     
     def _extract_transaction_data(self, response_text: str) -> Dict[str, Any]:
         """Extract transaction data from the AI response"""
+        def safe_float_convert(value):
+            """Safely convert string to float, handling various formats and optional values"""
+            if not value or value.lower() in ['', 'optional', '[optional]']:
+                return None
+            try:
+                # Remove any non-numeric characters except decimal point and minus
+                clean_value = ''.join(c for c in str(value) if c.isdigit() or c in '.-')
+                return float(clean_value) if clean_value else None
+            except (ValueError, TypeError):
+                return None
+
         extracted_data = {
             'date': datetime.now().strftime('%Y-%m-%d'),  # Always use current date
-            'description': None,
-            'category': None,
-            'transaction_type': None,
+            'description': 'No description',
+            'category': 'Uncategorized',
+            'transaction_type': 'EXPENSE',  # Default to expense
             'expected_amount': None,
             'paid_amount': None,
             'status': 'PAID',  # Default status
             'customer': None,
             'vendor': None,
-            'payment_method': None,
+            'payment_method': 'Cash',  # Default payment method
             'reference_number': None
         }
         
@@ -718,37 +729,58 @@ class GeminiService:
         lines = response_text.split('\n')
         for line in lines:
             line = line.strip()
-            
+            if not line:
+                continue
+                
             for field, field_patterns in patterns.items():
                 for pattern in field_patterns:
                     if line.startswith(pattern):
                         value = line[len(pattern):].strip()
-                        extracted_data[field] = value
+                        if value:  # Only update if we have a value
+                            extracted_data[field] = value
                         break
         
         # Normalize transaction type
         if extracted_data['transaction_type']:
-            if 'income' in extracted_data['transaction_type'].lower():
+            tx_type = extracted_data['transaction_type'].lower()
+            if 'income' in tx_type:
                 extracted_data['transaction_type'] = 'INCOME'
-            elif 'expense' in extracted_data['transaction_type'].lower():
+            elif 'expense' in tx_type:
                 extracted_data['transaction_type'] = 'EXPENSE'
         
-        # Set expected_amount equal to paid_amount if not specified
-        if not extracted_data['expected_amount'] and extracted_data['paid_amount']:
-            extracted_data['expected_amount'] = extracted_data['paid_amount']
+        # Convert amount strings to float, handling optional values
+        if extracted_data['paid_amount']:
+            extracted_data['paid_amount'] = safe_float_convert(extracted_data['paid_amount'])
         
-        # Update status based on payment amounts if both are set
-        if (extracted_data['expected_amount'] and extracted_data['paid_amount'] and 
-            extracted_data['expected_amount'] != extracted_data['paid_amount']):
-            paid = float(extracted_data['paid_amount']) if extracted_data['paid_amount'] else 0
-            expected = float(extracted_data['expected_amount']) if extracted_data['expected_amount'] else 0
+        # Set expected_amount equal to paid_amount if not explicitly set
+        if not extracted_data['expected_amount'] and extracted_data['paid_amount'] is not None:
+            extracted_data['expected_amount'] = extracted_data['paid_amount']
+        elif extracted_data['expected_amount']:
+            extracted_data['expected_amount'] = safe_float_convert(extracted_data['expected_amount'])
+        
+        # Set default paid amount if not provided (for expenses, assume full payment)
+        if (extracted_data['transaction_type'] == 'EXPENSE' and 
+            extracted_data['expected_amount'] is not None and 
+            extracted_data['paid_amount'] is None):
+            extracted_data['paid_amount'] = extracted_data['expected_amount']
+        
+        # Update status based on payment amounts
+        paid = extracted_data['paid_amount'] or 0
+        expected = extracted_data['expected_amount'] or 0
+        
+        if paid == 0 and expected > 0:
+            extracted_data['status'] = 'PENDING'
+        elif 0 < paid < expected:
+            extracted_data['status'] = 'PARTIAL'
+        else:
+            extracted_data['status'] = 'PAID'
             
-            if paid == 0:
-                extracted_data['status'] = 'PENDING'
-            elif paid < expected:
-                extracted_data['status'] = 'PARTIAL'
-            else:
-                extracted_data['status'] = 'PAID'
+        # If we have a vendor but no customer (for expenses), set it
+        if extracted_data['transaction_type'] == 'EXPENSE' and extracted_data['vendor'] and not extracted_data['customer']:
+            extracted_data['customer'] = extracted_data['vendor']
+        # If we have a customer but no vendor (for income), set it
+        elif extracted_data['transaction_type'] == 'INCOME' and extracted_data['customer'] and not extracted_data['vendor']:
+            extracted_data['vendor'] = extracted_data['customer']
         
         return extracted_data
     

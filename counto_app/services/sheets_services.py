@@ -518,26 +518,30 @@ class GoogleSheetsService:
     def add_transaction(self, transaction_data: Dict[str, Any]) -> bool:
         """Add a new transaction to the Google Sheet"""
         try:
-            # Format the data as a row
+            # Format the data as a row with proper type conversion
             row = [
-                transaction_data.get('date', ''),
-                transaction_data.get('description', ''),
-                transaction_data.get('category', ''),
-                transaction_data.get('expected_amount', ''),
-                transaction_data.get('paid_amount', ''),
-                transaction_data.get('transaction_type', ''),
-                transaction_data.get('status', ''),
-                transaction_data.get('customer', ''),
-                transaction_data.get('vendor', ''),
-                transaction_data.get('payment_method', ''),
-                transaction_data.get('reference_number', '')
+                # Convert date to string if it's a date/datetime object
+                transaction_data.get('date').strftime('%Y-%m-%d') 
+                if hasattr(transaction_data.get('date'), 'strftime')
+                else str(transaction_data.get('date', '')),
+                str(transaction_data.get('description', '')),
+                str(transaction_data.get('category', '')),
+                # Convert numeric values to float, then to string
+                float(transaction_data.get('expected_amount', 0)) if transaction_data.get('expected_amount') is not None else '',
+                float(transaction_data.get('paid_amount', 0)) if transaction_data.get('paid_amount') is not None else '',
+                str(transaction_data.get('transaction_type', '')),
+                str(transaction_data.get('status', '')),
+                str(transaction_data.get('customer', '')),
+                str(transaction_data.get('vendor', '')),
+                str(transaction_data.get('payment_method', '')),
+                str(transaction_data.get('reference_number', ''))
             ]
             
-            # Append the row to the sheet
+            # Append the row to the sheet with USER_ENTERED to handle different data types properly
             result = self.sheet.values().append(
                 spreadsheetId=self.spreadsheet_id,
                 range='Transactions!A1',
-                valueInputOption='RAW',
+                valueInputOption='USER_ENTERED',  # Changed from RAW to USER_ENTERED
                 insertDataOption='INSERT_ROWS',
                 body={'values': [row]}
             ).execute()
@@ -545,7 +549,7 @@ class GoogleSheetsService:
             logger.info(f"Added new transaction: {transaction_data}")
             return True
         except Exception as e:
-            logger.error(f"Error adding transaction: {e}")
+            logger.error(f"Error adding transaction: {e}", exc_info=True)
             return False
     
     def add_customer(self, customer_data: Dict[str, Any]) -> bool:
