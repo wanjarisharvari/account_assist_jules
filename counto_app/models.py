@@ -28,26 +28,26 @@ class Message(models.Model):
     def __str__(self):
         return f"{self.sender} message in conversation {self.conversation_id}"
     
-class Transaction(models.Model):
-    TYPE_CHOICES = [
-        ('INCOME', 'Income'),
-        ('EXPENSE', 'Expense'),
-    ]
+# class Transaction(models.Model):
+#     TYPE_CHOICES = [
+#         ('INCOME', 'Income'),
+#         ('EXPENSE', 'Expense'),
+#     ]
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    date = models.DateField()
-    description = models.CharField(max_length=500)
-    category = models.CharField(max_length=100)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    transaction_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    payment_method = models.CharField(max_length=500, blank=True, null=True)
-    reference_number = models.CharField(max_length=500, blank=True, null=True)
-    party = models.CharField(max_length=500, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+#     user = models.ForeignKey(User, on_delete=models.CASCADE)
+#     date = models.DateField()
+#     description = models.CharField(max_length=500)
+#     category = models.CharField(max_length=100)
+#     amount = models.DecimalField(max_digits=10, decimal_places=2)
+#     transaction_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+#     payment_method = models.CharField(max_length=500, blank=True, null=True)
+#     reference_number = models.CharField(max_length=500, blank=True, null=True)
+#     party = models.CharField(max_length=500, blank=True, null=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
     
-    def __str__(self):
-        return f"{self.description} - {self.amount}"
+#     def __str__(self):
+#         return f"{self.description} - {self.amount}"
     
 class PendingTransaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -65,71 +65,71 @@ class PendingTransaction(models.Model):
         return f"Pending: {self.description if self.description else 'New Transaction'}"
 
 
-# class Customer(models.Model):
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     name = models.CharField(max_length=255)
-#     email = models.EmailField(blank=True, null=True)
-#     phone = models.CharField(max_length=20, blank=True, null=True)
-#     gst_number = models.CharField(max_length=20, blank=True, null=True)
-#     address = models.TextField(blank=True, null=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
+class Customer(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    gst_number = models.CharField(max_length=20, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-#     def __str__(self):
-#         return self.name
-
-
-# class Vendor(models.Model):
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     name = models.CharField(max_length=255)
-#     email = models.EmailField(blank=True, null=True)
-#     phone = models.CharField(max_length=20, blank=True, null=True)
-#     gst_number = models.CharField(max_length=20, blank=True, null=True)
-#     address = models.TextField(blank=True, null=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-
-#     def __str__(self):
-#         return self.name
+    def __str__(self):
+        return self.name
 
 
-# class Transaction(models.Model):
-#     TYPE_CHOICES = [
-#         ('INCOME', 'Income'),
-#         ('EXPENSE', 'Expense'),
-#     ]
+class Vendor(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    gst_number = models.CharField(max_length=20, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-#     STATUS_CHOICES = [
-#         ('PENDING', 'Pending'),
-#         ('PARTIAL', 'Partial'),
-#         ('PAID', 'Paid'),
-#     ]
+    def __str__(self):
+        return self.name
 
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     date = models.DateField()
-#     description = models.CharField(max_length=255)
-#     category = models.CharField(max_length=100, blank=True)
-#     transaction_type = models.CharField(max_length=7, choices=TYPE_CHOICES)
 
-#     expected_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-#     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+class Transaction(models.Model):
+    TYPE_CHOICES = [
+        ('INCOME', 'Income'),
+        ('EXPENSE', 'Expense'),
+    ]
 
-#     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PAID')
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('PARTIAL', 'Partial'),
+        ('PAID', 'Paid'),
+    ]
 
-#     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True)
-#     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    date = models.DateField()
+    description = models.CharField(max_length=255)
+    category = models.CharField(max_length=100, blank=True)
+    transaction_type = models.CharField(max_length=7, choices=TYPE_CHOICES)
 
-#     payment_method = models.CharField(max_length=100, blank=True, null=True)
-#     reference_number = models.CharField(max_length=100, blank=True, null=True)
+    expected_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
-#     created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PAID')
 
-#     def __str__(self):
-#         return f"{self.transaction_type} - ₹{self.paid_amount}/{self.expected_amount or self.paid_amount} - {self.description}"
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True)
+    vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True)
 
-#     def update_payment_status(self):
-#         if self.paid_amount == 0:
-#             self.status = 'PENDING'
-#         elif self.paid_amount < (self.expected_amount or self.paid_amount):
-#             self.status = 'PARTIAL'
-#         else:
-#             self.status = 'PAID'
-#         self.save()
+    payment_method = models.CharField(max_length=100, blank=True, null=True)
+    reference_number = models.CharField(max_length=100, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.transaction_type} - ₹{self.paid_amount}/{self.expected_amount or self.paid_amount} - {self.description}"
+
+    def update_payment_status(self):
+        if self.paid_amount == 0:
+            self.status = 'PENDING'
+        elif self.paid_amount < (self.expected_amount or self.paid_amount):
+            self.status = 'PARTIAL'
+        else:
+            self.status = 'PAID'
+        self.save()

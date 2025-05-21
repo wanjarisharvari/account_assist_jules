@@ -115,7 +115,414 @@ class MessageView(APIView):
         messages = Message.objects.filter(conversation=conversation)
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
+   
+
+    def post(self, request):
+        """Process a new message from the user"""
+        try:
+            # Get or create conversation
+            conversation_id = request.data.get('conversation_id')
+            if conversation_id:
+                conversation = get_object_or_404(Conversation, id=conversation_id, user=request.user)
+            else:
+                conversation = Conversation.objects.create(user=request.user)
+            
+            # Save user message
+            user_message = request.data.get('content', '')
+            Message.objects.create(
+                conversation=conversation,
+                sender='USER',
+                content=user_message
+            )
+            
+            # Get conversation history
+            history = Message.objects.filter(conversation=conversation).values('sender', 'content')
+            
+            # Process message through Gemini
+            try:
+                ai_response, extracted_data, intent_type, is_query = self.gemini_service.process_message(
+                    user_message, 
+                    list(history)
+                )
+                # Convert intent_type to the expected format
+                if is_query:
+                    intent_type = f'QUERY_{intent_type}'
+                else:
+                    intent_type = f'DATA_ENTRY_{intent_type}'
+            except Exception as e:
+                import logging
+                logging.error(f"Gemini API error: {str(e)}")
+                return Response({
+                    'error': 'Error processing message with AI service',
+                    'detail': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # Handle different entity types based on intent
+            try:
+                if intent_type.startswith('DATA_ENTRY_'):
+                    if intent_type == 'DATA_ENTRY_TRANSACTION':
+                        ai_response = self._handle_transaction_data(request.user, extracted_data, ai_response)
+                    elif intent_type == 'DATA_ENTRY_CUSTOMER':
+                        ai_response = self._handle_customer_data(request.user, extracted_data, ai_response)
+                    elif intent_type == 'DATA_ENTRY_VENDOR':
+                        ai_response = self._handle_vendor_data(request.user, extracted_data, ai_response)
+                    else:
+                        logging.warning(f"Unhandled data entry type: {intent_type}")
+                elif intent_type.startswith('QUERY_'):
+                    if intent_type == 'QUERY_TRANSACTION':
+                        ai_response = self._handle_transaction_query(extracted_data, ai_response)
+                    elif intent_type == 'QUERY_CUSTOMER':
+                        ai_response = self._handle_customer_query(extracted_data, ai_response)
+                    elif intent_type == 'QUERY_VENDOR':
+                        ai_response = self._handle_vendor_query(extracted_data, ai_response)
+                    else:
+                        logging.warning(f"Unhandled query type: {intent_type}")
+                else:
+                    logging.warning(f"Unknown intent type: {intent_type}")
+            except Exception as e:
+                import logging
+                error_msg = f"Error handling {intent_type}: {str(e)}"
+                logging.error(error_msg, exc_info=True)
+                ai_response = f"{ai_response}\n\n⚠️ {error_msg}"
+                # If we have a critical error, return a clean error message
+                if not ai_response.strip():
+                    ai_response = f"Sorry, there was an error processing your {intent_type.replace('_', ' ').lower()} request."
+
+            # Save AI response
+            Message.objects.create(
+                conversation=conversation,
+                sender='AI',
+                content=ai_response
+            )
+
+            # Update conversation
+            conversation.updated_at = timezone.now()
+            conversation.save()
+
+            return Response({
+                'conversation_id': conversation.id,
+                'message': ai_response,
+                'intent_type': intent_type if 'intent_type' in locals() else None
+            })
+
+        except Exception as e:
+            import logging
+            logging.error(f"Unexpected error: {str(e)}", exc_info=True)
+            return Response({
+                'error': 'An unexpected error occurred',
+                'detail': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def _handle_transaction_data(self, user, extracted_data, ai_response):
+    """Process and save transaction data"""
+    # Handle date conversion
+    date_str = extracted_data.get('date')
+    transaction_date = None
     
+    if date_str:
+        for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y']:
+            try:
+                transaction_date = datetime.strptime(date_str, fmt).date()
+                break
+            except ValueError:
+                continue
+    
+    # Use current date if none provided
+    transaction_date = transaction_date or timezone.now().date()
+    
+    # Handle amount conversion
+    expected_amount = self._parse_amount(extracted_data.get('expected_amount', extracted_data.get('amount', '0')))
+    paid_amount = self._parse_amount(extracted_data.get('paid_amount', expected_amount))
+    
+    # Determine transaction status
+    status = 'PAID'  # Default
+    if paid_amount == 0:
+        status = 'PENDING'
+    elif paid_amount < expected_amount:
+        status = 'PARTIAL'
+    
+    # Get or create customer/vendor if applicable
+    customer = None
+    vendor = None
+    
+    if extracted_data.get('customer_name'):
+        customer, _ = Customer.objects.get_or_create(
+            user=user,
+            name=extracted_data.get('customer_name'),
+            defaults={
+                'email': extracted_data.get('customer_email', ''),
+                'phone': extracted_data.get('customer_phone', ''),
+                'gst_number': extracted_data.get('customer_gst', ''),
+                'address': extracted_data.get('customer_address', '')
+            }
+        )
+    
+    if extracted_data.get('vendor_name'):
+        vendor, _ = Vendor.objects.get_or_create(
+            user=user,
+            name=extracted_data.get('vendor_name'),
+            defaults={
+                'email': extracted_data.get('vendor_email', ''),
+                'phone': extracted_data.get('vendor_phone', ''),
+                'gst_number': extracted_data.get('vendor_gst', ''),
+                'address': extracted_data.get('vendor_address', '')
+            }
+        )
+
+    # Create transaction record
+    transaction_data = {
+        'date': transaction_date,
+        'description': extracted_data.get('description', ''),
+        'category': extracted_data.get('category', ''),
+        'transaction_type': extracted_data.get('transaction_type', 'EXPENSE'),
+        'expected_amount': expected_amount,
+        'paid_amount': paid_amount,
+        'status': status,
+        'customer': customer,
+        'vendor': vendor,
+        'payment_method': extracted_data.get('payment_method', ''),
+        'reference_number': extracted_data.get('reference_number', '')
+    }
+
+    # Save to database
+    transaction = Transaction.objects.create(
+        user=user,
+        **transaction_data
+    )
+
+    # Sync with Google Sheets
+    sheets_success = False
+    sheets_error = None
+    if self.sheets_enabled:
+        try:
+            sheets_data = transaction_data.copy()
+            # Convert model instances to names for sheets
+            if customer:
+                sheets_data['customer'] = customer.name
+            if vendor:
+                sheets_data['vendor'] = vendor.name
+                
+            sheets_success = self.sheets_service.add_transaction(sheets_data)
+        except Exception as e:
+            sheets_error = str(e)
+            import logging
+            logging.error(f"Google Sheets sync failed: {sheets_error}")
+
+    # Update AI response
+    if "Would you like me to record this transaction?" in ai_response:
+        ai_response = ai_response.split("Would you like me to record this transaction?")[0]
+        ai_response += "\n\n✅ Transaction saved automatically!\n"
+        
+        if sheets_success:
+            ai_response += "\nSaved to database and Google Sheets."
+        elif sheets_error:
+            ai_response += f"\nNote: Google Sheets sync failed ({sheets_error})"
+        else:
+            ai_response += "\nSaved to local database."
+            
+    return ai_response
+
+def _handle_customer_data(self, user, extracted_data, ai_response):
+    """Process and save customer data"""
+    # Extract customer data
+    customer_data = {
+        'name': extracted_data.get('name', ''),
+        'email': extracted_data.get('email', ''),
+        'phone': extracted_data.get('phone', ''),
+        'gst_number': extracted_data.get('gst_number', ''),
+        'address': extracted_data.get('address', '')
+    }
+    
+    # Check if customer already exists
+    existing_customer = None
+    try:
+        existing_customer = Customer.objects.get(user=user, name=customer_data['name'])
+    except Customer.DoesNotExist:
+        pass
+    
+    if existing_customer:
+        # Update existing customer
+        for key, value in customer_data.items():
+            if value:  # Only update non-empty fields
+                setattr(existing_customer, key, value)
+        existing_customer.save()
+        customer = existing_customer
+        operation = "updated"
+    else:
+        # Create new customer
+        customer = Customer.objects.create(user=user, **customer_data)
+        operation = "created"
+    
+    # Sync with Google Sheets
+    sheets_success = False
+    sheets_error = None
+    if self.sheets_enabled:
+        try:
+            sheets_success = self.sheets_service.add_customer(customer_data)
+        except Exception as e:
+            sheets_error = str(e)
+            import logging
+            logging.error(f"Google Sheets sync failed: {sheets_error}")
+    
+    # Update AI response
+    ai_response += f"\n\n✅ Customer {operation} successfully!\n"
+    if sheets_success:
+        ai_response += "\nSaved to database and Google Sheets."
+    elif sheets_error:
+        ai_response += f"\nNote: Google Sheets sync failed ({sheets_error})"
+    else:
+        ai_response += "\nSaved to local database."
+        
+    return ai_response
+
+def _handle_vendor_data(self, user, extracted_data, ai_response):
+    """Process and save vendor data"""
+    # Extract vendor data
+    vendor_data = {
+        'name': extracted_data.get('name', ''),
+        'email': extracted_data.get('email', ''),
+        'phone': extracted_data.get('phone', ''),
+        'gst_number': extracted_data.get('gst_number', ''),
+        'address': extracted_data.get('address', '')
+    }
+    
+    # Check if vendor already exists
+    existing_vendor = None
+    try:
+        existing_vendor = Vendor.objects.get(user=user, name=vendor_data['name'])
+    except Vendor.DoesNotExist:
+        pass
+    
+    if existing_vendor:
+        # Update existing vendor
+        for key, value in vendor_data.items():
+            if value:  # Only update non-empty fields
+                setattr(existing_vendor, key, value)
+        existing_vendor.save()
+        vendor = existing_vendor
+        operation = "updated"
+    else:
+        # Create new vendor
+        vendor = Vendor.objects.create(user=user, **vendor_data)
+        operation = "created"
+    
+    # Sync with Google Sheets
+    sheets_success = False
+    sheets_error = None
+    if self.sheets_enabled:
+        try:
+            sheets_success = self.sheets_service.add_vendor(vendor_data)
+        except Exception as e:
+            sheets_error = str(e)
+            import logging
+            logging.error(f"Google Sheets sync failed: {sheets_error}")
+    
+    # Update AI response
+    ai_response += f"\n\n✅ Vendor {operation} successfully!\n"
+    if sheets_success:
+        ai_response += "\nSaved to database and Google Sheets."
+    elif sheets_error:
+        ai_response += f"\nNote: Google Sheets sync failed ({sheets_error})"
+    else:
+        ai_response += "\nSaved to local database."
+        
+    return ai_response
+
+def _handle_transaction_query(self, query_params, ai_response):
+    """Process transaction query"""
+    if not self.sheets_enabled:
+        return ai_response + "\n\nUnable to query transactions as Google Sheets integration is not enabled."
+    
+    try:
+        transactions = self.sheets_service.search_transactions(query_params)
+        
+        if transactions:
+            ai_response += "\n\nHere are the transactions I found:\n"
+            for idx, tx in enumerate(transactions[:10]):  # Show only first 10 for brevity
+                amount_str = f"₹{tx.get('paid_amount', 'N/A')}/{tx.get('expected_amount', tx.get('paid_amount', 'N/A'))}"
+                ai_response += f"{idx+1}. {tx.get('date', 'N/A')} - {tx.get('description', 'N/A')} - {amount_str} ({tx.get('status', 'N/A')})\n"
+                
+            if len(transactions) > 10:
+                ai_response += f"...and {len(transactions)-10} more transactions."
+        else:
+            ai_response += "\n\nI couldn't find any transactions matching your criteria."
+    except Exception as e:
+        import logging
+        logging.error(f"Error querying transactions: {str(e)}")
+        ai_response += f"\n\nI encountered an error while trying to retrieve your transactions: {str(e)}"
+    
+    return ai_response
+
+def _handle_customer_query(self, query_params, ai_response):
+    """Process customer query"""
+    if not self.sheets_enabled:
+        return ai_response + "\n\nUnable to query customers as Google Sheets integration is not enabled."
+    
+    try:
+        customers = self.sheets_service.search_customers(query_params)
+        
+        if customers:
+            ai_response += "\n\nHere are the customers I found:\n"
+            for idx, customer in enumerate(customers[:10]):  # Show only first 10 for brevity
+                ai_response += f"{idx+1}. {customer.get('name', 'N/A')}"
+                if customer.get('phone'):
+                    ai_response += f" - {customer.get('phone')}"
+                if customer.get('email'):
+                    ai_response += f" - {customer.get('email')}"
+                ai_response += "\n"
+                
+            if len(customers) > 10:
+                ai_response += f"...and {len(customers)-10} more customers."
+        else:
+            ai_response += "\n\nI couldn't find any customers matching your criteria."
+    except Exception as e:
+        import logging
+        logging.error(f"Error querying customers: {str(e)}")
+        ai_response += f"\n\nI encountered an error while trying to retrieve your customers: {str(e)}"
+    
+    return ai_response
+
+def _handle_vendor_query(self, query_params, ai_response):
+    """Process vendor query"""
+    if not self.sheets_enabled:
+        return ai_response + "\n\nUnable to query vendors as Google Sheets integration is not enabled."
+    
+    try:
+        vendors = self.sheets_service.search_vendors(query_params)
+        
+        if vendors:
+            ai_response += "\n\nHere are the vendors I found:\n"
+            for idx, vendor in enumerate(vendors[:10]):  # Show only first 10 for brevity
+                ai_response += f"{idx+1}. {vendor.get('name', 'N/A')}"
+                if vendor.get('phone'):
+                    ai_response += f" - {vendor.get('phone')}"
+                if vendor.get('email'):
+                    ai_response += f" - {vendor.get('email')}"
+                ai_response += "\n"
+                
+            if len(vendors) > 10:
+                ai_response += f"...and {len(vendors)-10} more vendors."
+        else:
+            ai_response += "\n\nI couldn't find any vendors matching your criteria."
+    except Exception as e:
+        import logging
+        logging.error(f"Error querying vendors: {str(e)}")
+        ai_response += f"\n\nI encountered an error while trying to retrieve your vendors: {str(e)}"
+    
+    return ai_response
+
+def _parse_amount(self, amount_str):
+    """Helper method to parse amount strings"""
+    if not amount_str:
+        return 0
+    
+    # Remove currency symbols and commas
+    amount_str = str(amount_str).replace('$', '').replace('€', '').replace('£', '').replace('₹', '').replace(',', '')
+    try:
+        return float(amount_str)
+    except ValueError:
+        return 0
+
     # def post(self, request):
     #     """Process a new message from the user"""
     #     try:
@@ -132,441 +539,137 @@ class MessageView(APIView):
     #             conversation = get_object_or_404(Conversation, id=conversation_id, user=request.user)
     #         else:
     #             conversation = Conversation.objects.create(user=request.user)
-                
-    #         # # Check if there's a pending transaction for this conversation - this helps with follow-up responses
-    #         # pending_transaction = None
-    #         # try:
-    #         #     pending_transaction = PendingTransaction.objects.filter(conversation=conversation).order_by('-created_at').first()
-    #         # except:
-    #         #     pass
-            
+
     #         # Save user message
     #         Message.objects.create(
     #             conversation=conversation,
     #             sender='USER',
     #             content=user_message
     #         )
-            
+
     #         # Get conversation history
     #         history = Message.objects.filter(conversation=conversation).values('sender', 'content')
-            
-    #         # Before sending to Gemini, first check if this is a simple command we can handle directly
-    #         # First, check for confirmation/rejection of pending transactions
-    #         # confirmation_words = ["yes", "confirm", "record it", "record this", "save it", "save this", "ok", "okay", "approve"]
-    #         # cancellation_words = ["no", "cancel", "don't record", "do not record", "delete", "remove"]
-    #         # is_direct_command = False
-    #         # ai_response = None
-            
-    #         # Check if this is a confirmation of a pending transaction
-    #         # if pending_transaction and (user_message.lower().strip() in confirmation_words or any(word in user_message.lower() for word in confirmation_words)):
-    #         #     is_direct_command = True
-    #         #     print(f"DEBUG: Detected confirmation command for pending transaction {pending_transaction.id}")
-                
-    #         #     try:
-    #         #         # Create a Transaction record in our database
-    #         #         transaction = Transaction.objects.create(
-    #         #             user=request.user,
-    #         #             date=pending_transaction.date,
-    #         #             description=pending_transaction.description,
-    #         #             category=pending_transaction.category,
-    #         #             amount=pending_transaction.amount,
-    #         #             transaction_type=pending_transaction.transaction_type,
-    #         #             payment_method=pending_transaction.payment_method,
-    #         #             reference_number=pending_transaction.reference_number,
-    #         #             party=pending_transaction.party
-    #         #         )
-                    
-    #         #         # Try Google Sheets if enabled
-    #         #         sheets_success = False
-    #         #         sheets_error = None
-    #         #         if hasattr(self, 'sheets_enabled') and self.sheets_enabled:
-    #         #             try:
-    #         #                 transaction_data = {
-    #         #                     'date': pending_transaction.date,
-    #         #                     'description': pending_transaction.description,
-    #         #                     'category': pending_transaction.category,
-    #         #                     'amount': pending_transaction.amount,
-    #         #                     'transaction_type': pending_transaction.transaction_type,
-    #         #                     'payment_method': pending_transaction.payment_method,
-    #         #                     'reference_number': pending_transaction.reference_number,
-    #         #                     'party': pending_transaction.party
-    #         #                 }
-    #         #                 sheets_success = self.sheets_service.add_transaction(transaction_data)
-    #         #             except Exception as e:
-    #         #                 import logging
-    #         #                 sheets_error = str(e)
-    #         #                 logging.error(f"Failed to add to Google Sheets: {sheets_error}")
-                    
-    #         #         # Prepare confirmation message
-    #         #         ai_response = f"✅ Transaction confirmed and saved successfully! I've recorded:\n\n"
-    #         #         ai_response += f"• {pending_transaction.date}: {pending_transaction.description}\n"
-    #         #         ai_response += f"• Amount: {pending_transaction.amount}\n"
-    #         #         ai_response += f"• Category: {pending_transaction.category or 'Uncategorized'}\n"
-                    
-    #         #         if sheets_success:
-    #         #             ai_response += "\nThe transaction has been saved both locally and to your Google Sheets."
-    #         #         elif sheets_error:
-    #         #             ai_response += "\nNote: The transaction was saved locally but couldn't be added to Google Sheets due to an error."
-    #         #         else:
-    #         #             ai_response += "\nThe transaction has been saved to your local database."
-                        
-    #         #         # Delete the pending transaction
-    #         #         pending_transaction.delete()
-    #         #     except Exception as e:
-    #         #         import logging
-    #         #         logging.error(f"Error confirming transaction: {str(e)}")
-    #         #         ai_response = f"I encountered an error while trying to save your transaction: {str(e)}"
-            
-    #         # # Check if this is a cancellation of a pending transaction
-    #         # elif pending_transaction and (user_message.lower().strip() in cancellation_words or any(word in user_message.lower() for word in cancellation_words)):
-    #         #     is_direct_command = True
-    #         #     print(f"DEBUG: Detected cancellation command for pending transaction {pending_transaction.id}")
-                
-    #         #     # Delete the pending transaction
-    #         #     pending_transaction.delete()
-    #         #     ai_response = "❌ Transaction cancelled. Is there anything else you'd like to do?"
-            
-    #         # Check for field updates
-    #         # is_field_update = False
-    #         # update_field = None
-    #         # update_value = None
-            
-    #         # if not is_direct_command and pending_transaction:
-    #         #     if "payment method" in user_message.lower() and ("is" in user_message.lower() or "was" in user_message.lower()):
-    #         #         is_field_update = True
-    #         #         update_field = 'payment_method'
-    #         #         update_value = user_message.lower().split("was")[-1].strip() if "was" in user_message.lower() else user_message.lower().split("is")[-1].strip()
-    #         #     elif "party" in user_message.lower() and ("is" in user_message.lower() or "was" in user_message.lower()):
-    #         #         is_field_update = True
-    #         #         update_field = 'party'
-    #         #         update_value = user_message.lower().split("was")[-1].strip() if "was" in user_message.lower() else user_message.lower().split("is")[-1].strip()
-            
-    #         # # Try to handle field updates we detected before
+
+    #         # Pending transaction handling (commented out for future reference)
+    #         # ------------------------------------------------------------------
+    #         # Check if there's a pending transaction for this conversation - this helps with follow-up responses
+    #         # pending_transaction = None
     #         # try:
-    #         #     if is_field_update and update_field and update_value:
-    #         #         # Update the pending transaction
-    #         #         if update_field == 'payment_method':
-    #         #             pending_transaction.payment_method = update_value.upper()
-    #         #         elif update_field == 'party':
-    #         #             pending_transaction.party = update_value.title()
-    #         #         pending_transaction.save()
-                    
-    #         #         # Generate a confirmation response
-    #         #         ai_response = f"I've updated the {update_field.replace('_', ' ')} to {update_value}. Here's the updated transaction:\n\n"
-    #         #         ai_response += f"Date: {pending_transaction.date}\n"
-    #         #         ai_response += f"Description: {pending_transaction.description}\n"
-    #         #         ai_response += f"Category: {pending_transaction.category}\n"
-    #         #         ai_response += f"Amount: {pending_transaction.amount}\n"
-    #         #         ai_response += f"Type: {pending_transaction.transaction_type}\n"
-    #         #         ai_response += f"Party: {pending_transaction.party or 'Not specified'}\n"
-    #         #         ai_response += f"Payment Method: {pending_transaction.payment_method or 'Not specified'}\n\n"
-    #         #         ai_response += "Would you like me to record this transaction with these details?"
-                    
-    #         #         extracted_data = {}
-    #         #         is_query = False
-    #         # except Exception as e:
-    #         #     # Log the error and return a specific error response
-    #         #     import logging
-    #         #     logging.error(f"Error processing field update: {str(e)}")
-    #         #     return Response({
-    #         #         'error': 'Error updating transaction field',
-    #         #         'detail': str(e)
-    #         #     }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                
-    #         # If we got a direct command response, skip Gemini processing
-    #         # if is_direct_command:
-    #         #     extracted_data = {}
-    #         #     is_query = False
-    #         # If no direct command and Gemini wasn't called yet, call it now
-    #         # elif not ai_response:
+    #         #     pending_transaction = PendingTransaction.objects.filter(conversation=conversation).order_by('-created_at').first()
+    #         # except:
+    #         #     pass
+    #         #
+    #         # [Rest of the commented pending transaction logic remains here]
+    #         # ------------------------------------------------------------------
+
+    #         # Process message through Gemini
     #         try:
     #             ai_response, extracted_data, is_query = self.gemini_service.process_message(
     #                 user_message, 
     #                 list(history)
     #             )
     #         except Exception as e:
-    #             import logging
     #             logging.error(f"Gemini API error: {str(e)}")
     #             return Response({
     #                 'error': 'Error processing message with AI service',
     #                 'detail': str(e)
     #             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-    #         # If it's a query, fetch data from Google Sheets if available
-    #         # if is_query:
-    #         #     if hasattr(self, 'sheets_enabled') and self.sheets_enabled:
-    #         #         try:
-    #         #             # Try to get transactions from Google Sheets
-    #         #             transactions = self.sheets_service.get_all_transactions()
+
+    #         # Transaction handling
+    #         if extracted_data:
+    #             try:
+    #                 # Handle date conversion
+    #                 date_str = extracted_data.get('date')
+    #                 transaction_date = None
+                    
+    #                 if date_str:
+    #                     for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y']:
+    #                         try:
+    #                             transaction_date = datetime.strptime(date_str, fmt).date()
+    #                             break
+    #                         except ValueError:
+    #                             continue
+                    
+    #                 # Use current date if none provided
+    #                 transaction_date = transaction_date or timezone.now().date()
+                    
+    #                 # Handle amount conversion
+    #                 amount_str = extracted_data.get('amount', '0')
+    #                 amount = 0
+    #                 if amount_str:
+    #                     # Remove currency symbols and commas
+    #                     amount_str = str(amount_str).replace('$', '').replace('€', '').replace('£', '').replace(',', '')
+    #                     try:
+    #                         amount = float(amount_str)
+    #                     except ValueError:
+    #                         pass
+
+    #                 # Create transaction record
+    #                 transaction_data = {
+    #                     'date': transaction_date,
+    #                     'description': extracted_data.get('description', ''),
+    #                     'category': extracted_data.get('category', ''),
+    #                     'amount': amount,
+    #                     'transaction_type': extracted_data.get('transaction_type', 'EXPENSE'),
+    #                     'payment_method': extracted_data.get('payment_method', ''),
+    #                     'reference_number': extracted_data.get('reference_number', ''),
+    #                     'party': extracted_data.get('party', '')
+    #                 }
+
+    #                 # Save to database
+    #                 transaction = Transaction.objects.create(
+    #                     user=request.user,
+    #                     **transaction_data
+    #                 )
+
+    #                 # Sync with Google Sheets
+    #                 sheets_success = False
+    #                 sheets_error = None
+    #                 if self.sheets_enabled:
+    #                     try:
+    #                         sheets_success = self.sheets_service.add_transaction(transaction_data)
+    #                     except Exception as e:
+    #                         sheets_error = str(e)
+    #                         logging.error(f"Google Sheets sync failed: {sheets_error}")
+
+    #                 # Update AI response
+    #                 if "Would you like me to record this transaction?" in ai_response:
+    #                     ai_response = ai_response.split("Would you like me to record this transaction?")[0]
+    #                     ai_response += "\n\n✅ Transaction saved automatically!\n"
                         
-    #         #             # Append financial data to response for user's reference
-    #         #             if transactions:
-    #         #                 ai_response += "\n\nHere's the data I found:\n"
-    #         #                 for idx, tx in enumerate(transactions[:5]):  # Show only first 5 for brevity
-    #         #                     ai_response += f"{idx+1}. {tx.get('date', 'N/A')} - {tx.get('description', 'N/A')} - {tx.get('amount', 'N/A')} ({tx.get('category', 'N/A')})\n"
-                            
-    #         #                 if len(transactions) > 5:
-    #         #                     ai_response += f"...and {len(transactions)-5} more transactions."
-    #         #         except Exception as e:
-    #         #             # Log the error but continue
-    #         #             import logging
-    #         #             logging.error(f"Google Sheets error: {str(e)}")
-    #         #             ai_response += "\n\nI tried to retrieve your financial data but encountered an error with Google Sheets. Your transaction will still be saved locally."
-    #         # If it's a data entry (transaction), create and save it immediately
-    #         # elif extracted_data:
-    #         #     try:
-    #         #         # Handle date conversion
-    #         #         date_str = extracted_data.get('date')
-    #         #         transaction_date = None
-                    
-    #         #         if date_str:
-    #         #             for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y']:
-    #         #                 try:
-    #         #                     transaction_date = datetime.strptime(date_str, fmt).date()
-    #         #                     break
-    #         #                 except ValueError:
-    #         #                     continue
-                    
-    #         #         # Use current date if none provided
-    #         #         if not transaction_date:
-    #         #             transaction_date = datetime.now().date()
-                    
-    #         #         # Handle amount conversion
-    #         #         amount_str = extracted_data.get('amount', '0')
-    #         #         if amount_str:
-    #         #             # Remove currency symbols and commas
-    #         #             amount_str = str(amount_str).replace('$', '').replace('€', '').replace('£', '').replace(',', '')
-    #         #             try:
-    #         #                 amount = float(amount_str)
-    #         #             except ValueError:
-    #         #                 amount = 0
-    #         #         else:
-    #         #             amount = 0
-                    
-    #                 # Extract the transaction data
-    #             transaction_data = {
-    #                 'date': transaction_date,
-    #                 'description': extracted_data.get('description', ''),
-    #                 'category': extracted_data.get('category', ''),
-    #                 'amount': amount,
-    #                 'transaction_type': extracted_data.get('transaction_type', 'EXPENSE'),
-    #                 'payment_method': extracted_data.get('payment_method', ''),
-    #                 'reference_number': extracted_data.get('reference_number', ''),
-    #                 'party': extracted_data.get('party', '')
-    #             }
-                
-    #             # Create transaction record in database
-    #             transaction = Transaction.objects.create(
-    #                 user=request.user,
-    #                 **transaction_data
-    #             )
-                
-    #             # Try to save to Google Sheets if enabled
-    #             sheets_success = False
-    #             sheets_error = None
-    #             if hasattr(self, 'sheets_enabled') and self.sheets_enabled:
-    #                 try:
-    #                     sheets_success = self.sheets_service.add_transaction(transaction_data)
-    #                 except Exception as e:
-    #                     import logging
-    #                     sheets_error = str(e)
-    #                     logging.error(f"Failed to add to Google Sheets: {sheets_error}")
-                
-    #             # Modify the response to indicate the transaction was saved
-    #             if "Would you like me to record this transaction?" in ai_response:
-    #                 # Replace the confirmation request with a success message
-    #                 ai_response = ai_response.split("Would you like me to record this transaction?")[0]
-    #                 ai_response += f"\n\n✅ Transaction saved automatically!\n"
-                    
-    #                 if sheets_success:
-    #                     ai_response += "\nThe transaction has been saved both to your database and Google Sheets."
-    #                 elif sheets_error:
-    #                     ai_response += f"\nNote: The transaction was saved locally but couldn't be added to Google Sheets due to an error: {sheets_error}"
-    #                 else:
-    #                     ai_response += "\nThe transaction has been saved to your local database."
-    #         except Exception as e:
-    #             # Log the error but continue
-    #             import logging
-    #             logging.error(f"Error creating transaction: {str(e)}")
-    #             ai_response += f"\n\nI tried to create a transaction record but encountered an error: {str(e)}"
-            
+    #                     if sheets_success:
+    #                         ai_response += "\nSaved to database and Google Sheets."
+    #                     elif sheets_error:
+    #                         ai_response += f"\nNote: Google Sheets sync failed ({sheets_error})"
+    #                     else:
+    #                         ai_response += "\nSaved to local database."
+
+    #             except Exception as e:
+    #                 logging.error(f"Transaction creation error: {str(e)}")
+    #                 ai_response += f"\n\n⚠️ Error saving transaction: {str(e)}"
+
     #         # Save AI response
     #         Message.objects.create(
     #             conversation=conversation,
     #             sender='AI',
     #             content=ai_response
     #         )
-            
-    #         # Update conversation timestamp
+
+    #         # Update conversation
     #         conversation.updated_at = timezone.now()
     #         conversation.save()
-            
+
     #         return Response({
     #             'conversation_id': conversation.id,
-    #             'message': ai_response,
-    #             'is_query': is_query,
-    #             'has_pending_transaction': not is_query and bool(extracted_data)
+    #             'message': ai_response
     #         })
-            
+
     #     except Exception as e:
-    #         # Catch any unexpected errors and log them
-    #         import logging
-    #         logging.error(f"Unexpected error in MessageView.post: {str(e)}")
-    #         import traceback
-    #         logging.error(traceback.format_exc())
+    #         logging.error(f"Unexpected error: {str(e)}", exc_info=True)
     #         return Response({
     #             'error': 'An unexpected error occurred',
     #             'detail': str(e)
     #         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-
-    def post(self, request):
-        """Process a new message from the user"""
-        try:
-            serializer = MessageInputSerializer(data=request.data)
-            
-            if not serializer.is_valid():
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            user_message = serializer.validated_data['content']
-            conversation_id = serializer.validated_data.get('conversation_id')
-            
-            # Get or create conversation
-            if conversation_id:
-                conversation = get_object_or_404(Conversation, id=conversation_id, user=request.user)
-            else:
-                conversation = Conversation.objects.create(user=request.user)
-
-            # Save user message
-            Message.objects.create(
-                conversation=conversation,
-                sender='USER',
-                content=user_message
-            )
-
-            # Get conversation history
-            history = Message.objects.filter(conversation=conversation).values('sender', 'content')
-
-            # Pending transaction handling (commented out for future reference)
-            # ------------------------------------------------------------------
-            # Check if there's a pending transaction for this conversation - this helps with follow-up responses
-            # pending_transaction = None
-            # try:
-            #     pending_transaction = PendingTransaction.objects.filter(conversation=conversation).order_by('-created_at').first()
-            # except:
-            #     pass
-            #
-            # [Rest of the commented pending transaction logic remains here]
-            # ------------------------------------------------------------------
-
-            # Process message through Gemini
-            try:
-                ai_response, extracted_data, is_query = self.gemini_service.process_message(
-                    user_message, 
-                    list(history)
-                )
-            except Exception as e:
-                logging.error(f"Gemini API error: {str(e)}")
-                return Response({
-                    'error': 'Error processing message with AI service',
-                    'detail': str(e)
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            # Transaction handling
-            if extracted_data:
-                try:
-                    # Handle date conversion
-                    date_str = extracted_data.get('date')
-                    transaction_date = None
-                    
-                    if date_str:
-                        for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y']:
-                            try:
-                                transaction_date = datetime.strptime(date_str, fmt).date()
-                                break
-                            except ValueError:
-                                continue
-                    
-                    # Use current date if none provided
-                    transaction_date = transaction_date or timezone.now().date()
-                    
-                    # Handle amount conversion
-                    amount_str = extracted_data.get('amount', '0')
-                    amount = 0
-                    if amount_str:
-                        # Remove currency symbols and commas
-                        amount_str = str(amount_str).replace('$', '').replace('€', '').replace('£', '').replace(',', '')
-                        try:
-                            amount = float(amount_str)
-                        except ValueError:
-                            pass
-
-                    # Create transaction record
-                    transaction_data = {
-                        'date': transaction_date,
-                        'description': extracted_data.get('description', ''),
-                        'category': extracted_data.get('category', ''),
-                        'amount': amount,
-                        'transaction_type': extracted_data.get('transaction_type', 'EXPENSE'),
-                        'payment_method': extracted_data.get('payment_method', ''),
-                        'reference_number': extracted_data.get('reference_number', ''),
-                        'party': extracted_data.get('party', '')
-                    }
-
-                    # Save to database
-                    transaction = Transaction.objects.create(
-                        user=request.user,
-                        **transaction_data
-                    )
-
-                    # Sync with Google Sheets
-                    sheets_success = False
-                    sheets_error = None
-                    if self.sheets_enabled:
-                        try:
-                            sheets_success = self.sheets_service.add_transaction(transaction_data)
-                        except Exception as e:
-                            sheets_error = str(e)
-                            logging.error(f"Google Sheets sync failed: {sheets_error}")
-
-                    # Update AI response
-                    if "Would you like me to record this transaction?" in ai_response:
-                        ai_response = ai_response.split("Would you like me to record this transaction?")[0]
-                        ai_response += "\n\n✅ Transaction saved automatically!\n"
-                        
-                        if sheets_success:
-                            ai_response += "\nSaved to database and Google Sheets."
-                        elif sheets_error:
-                            ai_response += f"\nNote: Google Sheets sync failed ({sheets_error})"
-                        else:
-                            ai_response += "\nSaved to local database."
-
-                except Exception as e:
-                    logging.error(f"Transaction creation error: {str(e)}")
-                    ai_response += f"\n\n⚠️ Error saving transaction: {str(e)}"
-
-            # Save AI response
-            Message.objects.create(
-                conversation=conversation,
-                sender='AI',
-                content=ai_response
-            )
-
-            # Update conversation
-            conversation.updated_at = timezone.now()
-            conversation.save()
-
-            return Response({
-                'conversation_id': conversation.id,
-                'message': ai_response
-            })
-
-        except Exception as e:
-            logging.error(f"Unexpected error: {str(e)}", exc_info=True)
-            return Response({
-                'error': 'An unexpected error occurred',
-                'detail': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
