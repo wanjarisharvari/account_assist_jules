@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{{ title }}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f8f9fc;
+    }
+    h1 {
+      color: #4e73df;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .section {
+      margin-top: 40px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #dee2e6;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    th {
+      background-color: #e9ecef;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>{{ title }}</h1>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Total Income</h3>
+      <p>₹ {{ summary.total_income|floatformat:2 }}</p>
+    </div>
+    <div class="card">
+      <h3>Total Expenses</h3>
+      <p>₹ {{ summary.total_expenses|floatformat:2 }}</p>
+    </div>
+    <div class="card">
+      <h3>Net Balance</h3>
+      <p>₹ {{ summary.net_balance|floatformat:2 }}</p>
+    </div>
+    <div class="card">
+      <h3>Savings Rate</h3>
+      <p>{{ summary.savings_rate }}%</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Monthly Income & Expenses</h2>
+    <table>
+      <tr>
+        <th>Month</th>
+        <th>Income</th>
+        <th>Expenses</th>
+      </tr>
+      {% for m in monthly_data %}
+      <tr>
+        <td>{{ m.month }}</td>
+        <td>₹ {{ m.income|floatformat:2 }}</td>
+        <td>₹ {{ m.expenses|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Category Breakdown</h2>
+    <table>
+      <tr>
+        <th>Category</th>
+        <th>Amount</th>
+      </tr>
+      {% for cat in categories %}
+      <tr>
+        <td>{{ cat.name }}</td>
+        <td>₹ {{ cat.amount|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Recent Transactions</h2>
+    <table>
+      <tr>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Category</th>
+        <th>Amount</th>
+        <th>Type</th>
+      </tr>
+      {% for tx in recent_transactions %}
+      <tr>
+        <td>{{ tx.date }}</td>
+        <td>{{ tx.description }}</td>
+        <td>{{ tx.category }}</td>
+        <td>₹ {{ tx.amount|floatformat:2 }}</td>
+        <td>{{ tx.transaction_type }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Customers</h2>
+    <table>
+      <tr>
+        <th>Name</th>
+        <th>Total Receivable</th>
+        <th>Total Received</th>
+        <th>Outstanding</th>
+        <th>Overdue?</th>
+      </tr>
+      {% for c in customer_data %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td>₹ {{ c.total_receivable|floatformat:2 }}</td>
+        <td>₹ {{ c.total_received|floatformat:2 }}</td>
+        <td>₹ {{ c.outstanding_balance|floatformat:2 }}</td>
+        <td>{{ c.is_overdue }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Vendors</h2>
+    <table>
+      <tr>
+        <th>Name</th>
+        <th>Total Payable</th>
+        <th>Total Paid</th>
+        <th>Outstanding</th>
+      </tr>
+      {% for v in vendor_data %}
+      <tr>
+        <td>{{ v.name }}</td>
+        <td>₹ {{ v.total_payable|floatformat:2 }}</td>
+        <td>₹ {{ v.total_paid|floatformat:2 }}</td>
+        <td>₹ {{ v.outstanding_balance|floatformat:2 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+</body>
+</html>

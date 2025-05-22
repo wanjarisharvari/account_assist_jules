@@ -171,6 +171,7 @@ class GeminiService:
             if response_text.startswith(":"):
                 response_text = response_text[1:].strip()
             
+            print("response_text", response_text)
             return response_text, extracted_data, detected_intent, is_query
         except Exception as e:
             logger.error(f"Error in Gemini processing: {str(e)}")
@@ -312,8 +313,14 @@ class GeminiService:
         For time-based queries, follow these rules:
         1. You will be provided with ALL relevant data as a list
         2. When a user asks about "today", "yesterday", "last week", "this month", "last month", etc., filter the data accordingly
-        3. Calculate and display the total amount (for transactions) or total count (for customers/vendors)
-        4. List the matching records
+        3. For transaction queries:
+           - Calculate and display the total amount for the filtered transactions
+           - Format amounts as numbers only (e.g., 500, 1000.50)
+           - Do not include currency symbols in the amounts
+           - Show the total at the top of the response
+        4. For customer/vendor queries:
+           - Calculate and display the total count
+           - Show relevant summary information
         
         Example query responses:
         - "QUERY_TRANSACTION" for "Show me my expenses this month"
@@ -345,25 +352,44 @@ class GeminiService:
     
     def _format_data_for_query(self, intent_type: str, data: List[Dict[str, Any]]) -> str:
         """Format data for inclusion in the query prompt"""
-        data_str = "\n\nHere is your COMPLETE DATA for querying:\n"
+        data_str = "\n\nHere is your COMPLETE DATA for querying. All amounts are in numbers only (no currency symbols):\n"
         
         if intent_type == "TRANSACTION":
-            data_str += "ID | DATE | DESCRIPTION | AMOUNT | CATEGORY | TYPE | STATUS | CUSTOMER/VENDOR\n"
-            data_str += "--|------|-------------|--------|----------|------|--------|---------------\n"
+            data_str += "ID | DATE       | DESCRIPTION                     | AMOUNT  | CATEGORY          | TYPE    | STATUS | CUSTOMER/VENDOR\n"
+            data_str += "---|------------|--------------------------------|---------|-------------------|---------|--------|-----------------\n"
             
             for i, tx in enumerate(data, 1):
                 date = tx.get('date', 'Unknown date')
                 if isinstance(date, datetime):
                     date = date.strftime('%Y-%m-%d')
                 desc = tx.get('description', 'No description')
-                amount = tx.get('paid_amount', '0')
+                
+                # Handle amount formatting
+                amount = '0.00'
+                if 'paid_amount' in tx and tx['paid_amount']:
+                    amount_str = str(tx['paid_amount'])
+                    
+                    # Handle format: ₹EXPENSE/500 or ₹INCOME/500
+                    if '/' in amount_str:
+                        # Extract the number after the last slash
+                        amount_str = amount_str.split('/')[-1]
+                    
+                    # Remove any remaining non-numeric characters except decimal point
+                    amount_str = ''.join(c for c in amount_str if c.isdigit() or c == '.')
+                    
+                    try:
+                        # Convert to float and format to 2 decimal places
+                        amount = f"{float(amount_str):.2f}" if amount_str else '0.00'
+                    except (ValueError, TypeError):
+                        amount = '0.00'
+                
                 category = tx.get('category', 'Uncategorized')
                 tx_type = tx.get('transaction_type', 'UNKNOWN')
                 status = tx.get('status', 'PAID')
                 party = tx.get('customer', '') if tx_type == 'INCOME' else tx.get('vendor', '')
                 
-                # Format in a table-like structure for easier analysis
-                data_str += f"{i} | {date} | {desc} | {amount} | {category} | {tx_type} | {status} | {party}\n"
+                # Format in a table-like structure
+                data_str += f"{i:2d} | {date} | {desc[:30]:30} | {amount:>7} | {category[:15]:15} | {tx_type:7} | {status:6} | {party[:15]}\n"
             
         elif intent_type == "CUSTOMER":
             data_str += "ID | NAME | EMAIL | PHONE | GST NUMBER | ADDRESS\n"
@@ -392,10 +418,13 @@ class GeminiService:
                 data_str += f"{i} | {name} | {email} | {phone} | {gst} | {address}\n"
         
         # Add explicit instructions for analysis
-        data_str += "\nWhen analyzing this data for time periods:\n"
+        data_str += "\nWhen analyzing this data for time periods and amounts:\n"
         data_str += "1. 'Today' refers to transactions/records on current date\n"
         data_str += "2. 'This month' refers to the current calendar month\n"
         data_str += "3. 'This year' refers to the current calendar year\n"
+        data_str += "4. All amounts are in numbers only (no currency symbols)\n"
+        data_str += "5. For transaction queries, calculate and show the total amount\n"
+        data_str += "6. For expense/income queries, show the total for each category\n"
         
         return data_str
     

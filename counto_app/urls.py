@@ -1,7 +1,8 @@
 from django.urls import path
 from .views import (
     ConversationView, MessageView, home, login_view, logout_view, 
-    register_view, dashboard, CustomerView, VendorView, TransactionView
+    register_view, dashboard, analytics, CustomerView, VendorView, TransactionView,
+    AnalyticsDataView
 )
 
 urlpatterns = [
@@ -11,6 +12,7 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('register/', register_view, name='register'),
     path('dashboard/', dashboard, name='dashboard'),
+    path('analytics/', analytics, name='analytics'),
     
     # API routes
     path('conversations/', ConversationView.as_view(), name='conversations'),
@@ -29,4 +31,7 @@ urlpatterns = [
     # Transaction management
     path('api/transactions/', TransactionView.as_view(), name='transaction-list'),
     path('api/transactions/<int:transaction_id>/', TransactionView.as_view(), name='transaction-detail'),
+    
+    # Analytics data API
+    path('api/analytics-data/', AnalyticsDataView.as_view(), name='analytics-data'),
 ]

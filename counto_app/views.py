@@ -1,15 +1,18 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.contrib import messages
+from django.db.models import Sum, F, Q, Count, Avg, Max, Min
 from django.utils import timezone
+from django.db.models.functions import TruncMonth, TruncYear, TruncDay, TruncWeek
 from decimal import Decimal, InvalidOperation
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
+import json
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
+from rest_framework.decorators import api_view, permission_classes
 
 from .models import Conversation, Message, Transaction, PendingTransaction, Customer, Vendor
 from .serializers import (
@@ -23,10 +26,264 @@ from .serializers import (
     VendorSerializer,
     TransactionCreateSerializer
 )
+from django.http import JsonResponse
 from .services.gemini_services import GeminiService
 from .services.sheets_services import GoogleSheetsService  # Re-enabled Google Sheets
 
 # Create your views here.
+
+def create_sample_data(user):
+    """Create sample transaction data for testing the analytics view"""
+    from datetime import timedelta
+    import random
+    
+    # Create a few sample customers
+    customers = []
+    for i in range(3):
+        customer = Customer.objects.create(
+            user=user,
+            name=f"Customer {i+1}",
+            email=f"customer{i+1}@example.com",
+            phone=f"123-456-{7890+i}",
+            total_receivable=Decimal(str(random.randint(5000, 15000))),
+            total_received=Decimal(str(random.randint(2000, 4000)))
+        )
+        customers.append(customer)
+    
+    # Create a few sample vendors
+    vendors = []
+    for i in range(3):
+        vendor = Vendor.objects.create(
+            user=user,
+            name=f"Vendor {i+1}",
+            email=f"vendor{i+1}@example.com",
+            phone=f"987-654-{3210+i}",
+            total_payable=Decimal(str(random.randint(3000, 10000))),
+            total_paid=Decimal(str(random.randint(1000, 2500)))
+        )
+        vendors.append(vendor)
+    
+    # Income categories
+    income_categories = ['Salary', 'Freelance Work', 'Investments', 'Rental Income', 'Other Income']
+    
+    # Expense categories
+    expense_categories = ['Groceries', 'Rent', 'Utilities', 'Transportation', 'Entertainment', 'Healthcare', 'Dining']
+    
+    # Generate transactions for the last 6 months
+    now = timezone.now().date()
+    start_date = now - timedelta(days=180)  # 6 months ago
+    
+    # Create 50 random transactions
+    for i in range(50):
+        transaction_date = start_date + timedelta(days=random.randint(0, 180))
+        transaction_type = random.choice(['INCOME', 'EXPENSE'])
+        
+        if transaction_type == 'INCOME':
+            category = random.choice(income_categories)
+            amount = Decimal(str(random.randint(1000, 5000)))
+            customer = random.choice(customers) if random.random() > 0.3 else None
+            vendor = None
+            description = f"{category} - {transaction_date.strftime('%b')}"
+        else:  # EXPENSE
+            category = random.choice(expense_categories)
+            amount = Decimal(str(random.randint(500, 3000)))
+            customer = None
+            vendor = random.choice(vendors) if random.random() > 0.3 else None
+            description = f"{category} - {transaction_date.strftime('%b')}"
+        
+        Transaction.objects.create(
+            user=user,
+            date=transaction_date,
+            description=description,
+            category=category,
+            transaction_type=transaction_type,
+            amount=amount,
+            customer=customer,
+            vendor=vendor,
+            payment_method=random.choice(['Cash', 'Credit Card', 'Bank Transfer', 'UPI'])
+        )
+
+
+class AnalyticsDataView(APIView):
+    """API endpoint for fetching analytics data for different time periods"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        # Create sample data if no transactions exist
+        if not Transaction.objects.filter(user=request.user).exists():
+            create_sample_data(request.user)
+        
+        # Get time period from query parameters
+        period = request.query_params.get('period', 'month')
+        
+        # Calculate date range based on period
+        now = timezone.now().date()
+        
+        if period == 'month':
+            # Current month
+            start_date = now.replace(day=1)
+            end_date = now
+            prev_start = (start_date - timedelta(days=1)).replace(day=1)
+            prev_end = start_date - timedelta(days=1)
+            date_format = '%b %d'
+            trunc_func = TruncDay
+        elif period == 'last_month':
+            # Last month
+            start_date = (now.replace(day=1) - timedelta(days=1)).replace(day=1)
+            end_date = now.replace(day=1) - timedelta(days=1)
+            prev_start = (start_date - timedelta(days=31)).replace(day=1)
+            prev_end = start_date - timedelta(days=1)
+            date_format = '%b %d'
+            trunc_func = TruncDay
+        elif period == 'last_3_months':
+            # Last 3 months
+            start_date = (now.replace(day=1) - timedelta(days=90))
+            end_date = now
+            prev_start = (start_date - timedelta(days=90))
+            prev_end = start_date - timedelta(days=1)
+            date_format = '%b %Y'
+            trunc_func = TruncMonth
+        elif period == 'last_6_months':
+            # Last 6 months
+            start_date = (now.replace(day=1) - timedelta(days=180))
+            end_date = now
+            prev_start = (start_date - timedelta(days=180))
+            prev_end = start_date - timedelta(days=1)
+            date_format = '%b %Y'
+            trunc_func = TruncMonth
+        elif period == 'year':
+            # Current year
+            start_date = now.replace(month=1, day=1)
+            end_date = now
+            prev_start = start_date.replace(year=start_date.year-1)
+            prev_end = end_date.replace(year=end_date.year-1)
+            date_format = '%b %Y'
+            trunc_func = TruncMonth
+        else:
+            # Default to current month
+            start_date = now.replace(day=1)
+            end_date = now
+            prev_start = (start_date - timedelta(days=1)).replace(day=1)
+            prev_end = start_date - timedelta(days=1)
+            date_format = '%b %d'
+            trunc_func = TruncDay
+        
+        # Get transactions for the selected period
+        transactions = Transaction.objects.filter(
+            user=request.user,
+            date__gte=start_date,
+            date__lte=end_date
+        )
+        
+        # Get previous period transactions for comparison
+        prev_transactions = Transaction.objects.filter(
+            user=request.user,
+            date__gte=prev_start,
+            date__lte=prev_end
+        )
+        
+        # Calculate summary statistics
+        total_income = transactions.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        total_expenses = transactions.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        
+        prev_income = prev_transactions.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        prev_expenses = prev_transactions.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        
+        # Ensure consistent decimal types
+        if not isinstance(total_income, Decimal):
+            total_income = Decimal(str(total_income))
+        if not isinstance(total_expenses, Decimal):
+            total_expenses = Decimal(str(total_expenses))
+        if not isinstance(prev_income, Decimal):
+            prev_income = Decimal(str(prev_income))
+        if not isinstance(prev_expenses, Decimal):
+            prev_expenses = Decimal(str(prev_expenses))
+            
+        net_balance = total_income - total_expenses
+        prev_net_balance = prev_income - prev_expenses
+        
+        savings_rate = (net_balance / total_income * Decimal('100')) if total_income > 0 else Decimal('0')
+        prev_savings_rate = (prev_net_balance / prev_income * Decimal('100')) if prev_income > 0 else Decimal('0')
+        
+        # Calculate income change percentage
+        income_change = ((total_income - prev_income) / prev_income * Decimal('100')) if prev_income > 0 else Decimal('0')
+        expense_change = ((prev_expenses - total_expenses) / prev_expenses * Decimal('100')) if prev_expenses > 0 else Decimal('0')
+        
+        # Get time series data for charts
+        time_series = transactions.annotate(
+            period=trunc_func('date')
+        ).values('period', 'transaction_type').annotate(
+            total=Sum('amount')
+        ).order_by('period')
+        
+        # Prepare time series data for the chart
+        periods = sorted(set([item['period'] for item in time_series]))
+        
+        labels = [period.strftime(date_format) for period in periods]
+        income_data = [0] * len(periods)
+        expense_data = [0] * len(periods)
+        
+        for item in time_series:
+            period_index = periods.index(item['period'])
+            if item['transaction_type'] == 'INCOME':
+                income_data[period_index] = float(item['total'])
+            else:
+                expense_data[period_index] = float(item['total'])
+        
+        # Get expense categories
+        expense_categories = transactions.filter(
+            transaction_type='EXPENSE'
+        ).values('category').annotate(total=Sum('amount')).order_by('-total')
+        
+        # Prepare category data for the chart
+        categories = []
+        category_totals = []
+        
+        for cat in expense_categories:
+            if cat['category'] and cat['total'] > 0:
+                categories.append(cat['category'])
+                category_totals.append(float(cat['total']))
+        
+        # Define category colors
+        category_colors = [
+            '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796',
+            '#5a5c69', '#3a3b45', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'
+        ]
+        
+        # Get recent transactions
+        recent_transactions = transactions.order_by('-date')[:5]
+        
+        # Serialize recent transactions
+        recent_transactions_data = [{
+            'date': transaction.date.strftime('%Y-%m-%d'),
+            'description': transaction.description,
+            'category': transaction.category,
+            'amount': float(transaction.amount),
+            'type': transaction.transaction_type.lower()
+        } for transaction in recent_transactions]
+        
+        # Prepare response data
+        response_data = {
+            'summary': {
+                'total_income': float(total_income),
+                'total_expenses': float(total_expenses),
+                'net_balance': float(net_balance),
+                'savings_rate': float(savings_rate),
+                'income_change': float(income_change),
+                'expense_change': float(expense_change)
+            },
+            'monthly_data': {
+                'labels': labels,
+                'income': income_data,
+                'expenses': expense_data
+            },
+            'categories': categories,
+            'category_totals': category_totals,
+            'category_colors': category_colors[:len(categories)],
+            'recent_transactions': recent_transactions_data
+        }
+        
+        return Response(response_data)
 def home(request):
     """Home page view"""
     return render(request, 'base.html', {'title': 'Counto - Your Financial Assistant', 'user': request.user})
@@ -78,8 +335,401 @@ def dashboard(request):
     """User dashboard"""
     if not request.user.is_authenticated:
         return redirect('login')
+    return render(request, 'dashboard.html', {'title': 'Dashboard'})
+
+from django.shortcuts import render, redirect
+from django.db.models import Sum
+from decimal import Decimal
+from datetime import datetime, timedelta
+from django.utils import timezone
+import json
+
+from .models import Transaction, Customer, Vendor
+
+
+def analytics(request):
+    """Financial analytics dashboard"""
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    # Check if we need to generate test data for demo purposes
+    if Transaction.objects.filter(user=request.user).count() == 0:
+        create_sample_data(request.user)
+
+    now = timezone.now()
+    first_day = now.replace(day=1).date()
+    last_day = (first_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+
+    monthly_transactions = Transaction.objects.filter(
+        user=request.user,
+        date__range=(first_day, last_day)
+    )
+
+    # DEBUG
+    print("Monthly transaction count:", monthly_transactions.count())
+    print("Income count:", monthly_transactions.filter(transaction_type='INCOME').count())
+    print("Expense count:", monthly_transactions.filter(transaction_type='EXPENSE').count())
+
+    total_income = monthly_transactions.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+    total_expenses = monthly_transactions.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+
+    print("Total income:", total_income)
+    print("Total expenses:", total_expenses)
+
+    # Ensure Decimal types
+    total_income = Decimal(total_income)
+    total_expenses = Decimal(total_expenses)
+    net_balance = total_income - total_expenses
+    savings_rate = (net_balance / total_income * Decimal('100')) if total_income > 0 else Decimal('0')
+
+    # Monthly data for last 6 months
+    monthly_data = []
+    for i in range(5, -1, -1):
+        target_date = now - timedelta(days=30 * i)
+        month = target_date.month
+        year = target_date.year
+        label = datetime(year, month, 1).strftime('%b %Y')
+
+        trans = Transaction.objects.filter(
+            user=request.user,
+            date__year=year,
+            date__month=month
+        )
+        income = trans.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        expense = trans.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+
+        monthly_data.append({
+            'month': label,
+            'income': float(income),
+            'expenses': float(expense)
+        })
+
+    # Expense categories for pie chart
+    expense_categories = Transaction.objects.filter(
+        user=request.user,
+        transaction_type='EXPENSE',
+        date__range=(first_day, last_day)
+    ).values('category').annotate(total=Sum('amount')).order_by('-total')
+
+    categories = []
+    category_totals = []
+    category_colors = [
+        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e',
+        '#e74a3b', '#858796', '#5a5c69', '#3a3b45'
+    ]
+    for cat in expense_categories:
+        if cat['category'] and cat['total'] > 0:
+            categories.append(cat['category'])
+            category_totals.append(float(cat['total']))
+
+    category_objects = [
+        {'name': categories[i], 'amount': category_totals[i], 'color': category_colors[i % len(category_colors)]}
+        for i in range(len(categories))
+    ]
+
+    # Recent transactions
+    recent_transactions_data = [
+        {
+            'date': tx.date.strftime('%Y-%m-%d'),
+            'description': tx.description,
+            'category': tx.category or 'Uncategorized',
+            'amount': float(tx.amount),
+            'transaction_type': tx.transaction_type.lower()
+        }
+        for tx in Transaction.objects.filter(user=request.user).order_by('-date')[:5]
+    ]
+
+    # Customer data
+    customer_data = []
+    for cust in Customer.objects.filter(user=request.user, is_active=True):
+        income = Transaction.objects.filter(user=request.user, customer=cust, transaction_type='INCOME').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        if income > 0 or cust.total_receivable > 0 or cust.total_received > 0:
+            customer_data.append({
+                'name': cust.name,
+                'total_receivable': float(cust.total_receivable or income),
+                'total_received': float(cust.total_received),
+                'outstanding_balance': float(cust.outstanding_balance or income - cust.total_received),
+                'is_overdue': cust.is_overdue
+            })
+
+    # Vendor data
+    vendor_data = []
+    for vendor in Vendor.objects.filter(user=request.user, is_active=True):
+        expense = Transaction.objects.filter(user=request.user, vendor=vendor, transaction_type='EXPENSE').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        if expense > 0 or vendor.total_payable > 0 or vendor.total_paid > 0:
+            vendor_data.append({
+                'name': vendor.name,
+                'total_payable': float(vendor.total_payable or expense),
+                'total_paid': float(vendor.total_paid),
+                'outstanding_balance': float(vendor.outstanding_balance or expense - vendor.total_paid),
+            })
+
+    # context = {
+    #     'title': 'Financial Analytics',
+    #     'summary': json.dumps({
+    #         'total_income': float(total_income),
+    #         'total_expenses': float(total_expenses),
+    #         'net_balance': float(net_balance),
+    #         'savings_rate': float(round(savings_rate, 1))
+    #     }),
+    #     'monthly_data': json.dumps(monthly_data),
+    #     'categories': json.dumps(category_objects),
+    #     'category_totals': json.dumps(category_totals),
+    #     'category_colors': json.dumps(category_colors[:len(categories)]),
+    #     'recent_transactions': json.dumps(recent_transactions_data),
+    #     'customer_data': json.dumps(customer_data),
+    #     'vendor_data': json.dumps(vendor_data)
+    # }
+
+        context = {
+        'title': 'Financial Analytics',
+        'summary': {
+            'total_income': float(total_income),
+            'total_expenses': float(total_expenses),
+            'net_balance': float(net_balance),
+            'savings_rate': float(round(savings_rate, 1))
+        },
+        'monthly_data': monthly_data,
+        'categories': category_objects,
+        'category_totals': category_totals,
+        'category_colors': category_colors[:len(categories)],
+        'recent_transactions': recent_transactions_data,
+        'customer_data': customer_data,
+        'vendor_data': vendor_data,
+        }
+
+
+        print(context)
+    #     # Print everything to the terminal
+    # print("Context data sent to template:")
+    # print("Title:", context['title'])
+    # print("Summary:", json.dumps(json.loads(context['summary']), indent=2))
+    # print("Monthly Data:", json.dumps(json.loads(context['monthly_data']), indent=2))
+    # print("Categories:", json.dumps(json.loads(context['categories']), indent=2))
+    # print("Category Totals:", json.dumps(json.loads(context['category_totals']), indent=2))
+    # print("Category Colors:", json.dumps(json.loads(context['category_colors']), indent=2))
+    # print("Recent Transactions:", json.dumps(json.loads(context['recent_transactions']), indent=2))
+    # print("Customer Data:", json.dumps(json.loads(context['customer_data']), indent=2))
+    # print("Vendor Data:", json.dumps(json.loads(context['vendor_data']), indent=2))
+
+    return render(request, 'analytics.html', context)
+
+
+# def analytics(request):
+#     """Financial analytics dashboard"""
+#     if not request.user.is_authenticated:
+#         return redirect('login')
     
-    return render(request, 'dashboard.html', {'user': request.user})
+#     # Check if we need to generate test data for demo purposes
+#     transaction_count = Transaction.objects.filter(user=request.user).count()
+#     if transaction_count == 0:
+#         # Create sample data for testing if no transactions exist
+#         create_sample_data(request.user)
+    
+#     # Get current month and year for filtering
+#     now = timezone.now()
+#     current_month = now.month
+#     current_year = now.year
+    
+#     # Get transactions for the current month
+#     monthly_transactions = Transaction.objects.filter(
+#         user=request.user,
+#         date__year=current_year,
+#         date__month=current_month
+#     )
+    
+#     # Calculate summary statistics
+#     total_income = monthly_transactions.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+#     total_expenses = monthly_transactions.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+    
+#     # Ensure consistent decimal types
+#     if not isinstance(total_income, Decimal):
+#         total_income = Decimal(str(total_income))
+#     if not isinstance(total_expenses, Decimal):
+#         total_expenses = Decimal(str(total_expenses))
+        
+#     net_balance = total_income - total_expenses
+#     savings_rate = (net_balance / total_income * Decimal('100')) if total_income > 0 else Decimal('0')
+    
+#     # Get data for the last 6 months for the chart
+#     months_back = 6
+#     monthly_data = []
+#     for i in range(months_back - 1, -1, -1):
+#         month = now.month - i
+#         year = now.year
+#         if month <= 0:
+#             month += 12
+#             year -= 1
+            
+#         month_date = datetime(year, month, 1)
+#         month_name = month_date.strftime('%b %Y')
+            
+#         month_transactions = Transaction.objects.filter(
+#             user=request.user,
+#             date__year=year,
+#             date__month=month
+#         )
+        
+#         month_income = month_transactions.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+#         month_expenses = month_transactions.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        
+#         # Ensure consistent decimal types
+#         if not isinstance(month_income, Decimal):
+#             month_income = Decimal(str(month_income))
+#         if not isinstance(month_expenses, Decimal):
+#             month_expenses = Decimal(str(month_expenses))
+        
+#         monthly_data.append({
+#             'month': month_name,
+#             # Convert to float only when adding to the context for JSON serialization
+#             'income': float(month_income),
+#             'expenses': float(month_expenses)
+#         })
+    
+#     # Get expense categories
+#     expense_categories = Transaction.objects.filter(
+#         user=request.user,
+#         transaction_type='EXPENSE',
+#         date__year=current_year,
+#         date__month=current_month
+#     ).values('category').annotate(total=Sum('amount')).order_by('-total')
+    
+#     # Prepare category data for the chart
+#     categories = []
+#     category_totals = []
+#     category_colors = [
+#         '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796',
+#         '#5a5c69', '#3a3b45', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'
+#     ]
+    
+#     for i, cat in enumerate(expense_categories):
+#         if cat['category'] and cat['total'] > 0:
+#             categories.append(cat['category'])
+#             category_totals.append(float(cat['total']))
+    
+#     # Get recent transactions
+#     recent_transactions = Transaction.objects.filter(
+#         user=request.user
+#     ).order_by('-date')[:5]
+    
+#     # Serialize recent transactions for JavaScript
+#     recent_transactions_data = []
+#     for transaction in recent_transactions:
+#         recent_transactions_data.append({
+#             'date': transaction.date.strftime('%Y-%m-%d'),
+#             'description': transaction.description,
+#             'category': transaction.category or 'Uncategorized',
+#             'amount': float(transaction.amount),
+#             'transaction_type': transaction.transaction_type.lower()
+#         })
+        
+#     # Calculate customer data directly from transactions and invoices
+#     customers = Customer.objects.filter(user=request.user, is_active=True)
+#     customer_data = []
+    
+#     for customer in customers:
+#         # Get total transactions for this customer
+#         customer_income = Transaction.objects.filter(
+#             user=request.user,
+#             customer=customer,
+#             transaction_type='INCOME'
+#         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+#         # Ensure we have properly calculated values even if the balance fields aren't updated
+#         if customer_income > 0 or customer.total_receivable > 0 or customer.total_received > 0:
+#             customer_data.append({
+#                 'name': customer.name,
+#                 'total_receivable': float(customer.total_receivable) or float(customer_income),
+#                 'total_received': float(customer.total_received),
+#                 'outstanding_balance': float(customer.outstanding_balance) or float(customer_income - customer.total_received),
+#                 'is_overdue': customer.is_overdue
+#             })
+    
+#     # Calculate vendor data directly from transactions and bills
+#     vendors = Vendor.objects.filter(user=request.user, is_active=True)
+#     vendor_data = []
+    
+#     for vendor in vendors:
+#         # Get total transactions for this vendor
+#         vendor_expenses = Transaction.objects.filter(
+#             user=request.user,
+#             vendor=vendor,
+#             transaction_type='EXPENSE'
+#         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+#         # Ensure we have properly calculated values even if the balance fields aren't updated
+#         if vendor_expenses > 0 or vendor.total_payable > 0 or vendor.total_paid > 0:
+#             vendor_data.append({
+#                 'name': vendor.name,
+#                 'total_payable': float(vendor.total_payable) or float(vendor_expenses),
+#                 'total_paid': float(vendor.total_paid),
+#                 'outstanding_balance': float(vendor.outstanding_balance) or float(vendor_expenses - vendor.total_paid),
+#             })
+            
+#     # If we don't have any customer/vendor data, let's add some sample data for testing
+#     if not customer_data:
+#         # Find all income transactions and group by description as a proxy for customer
+#         income_by_source = Transaction.objects.filter(
+#             user=request.user,
+#             transaction_type='INCOME'
+#         ).values('description').annotate(total=Sum('amount')).order_by('-total')[:5]
+        
+#         for source in income_by_source:
+#             if source['total'] > 0:
+#                 customer_data.append({
+#                     'name': source['description'] or 'Unknown Source',
+#                     'total_receivable': float(source['total']),
+#                     'total_received': 0,
+#                     'outstanding_balance': float(source['total']),
+#                     'is_overdue': False
+#                 })
+    
+#     if not vendor_data:
+#         # Find all expense transactions and group by description as a proxy for vendor
+#         expenses_by_source = Transaction.objects.filter(
+#             user=request.user,
+#             transaction_type='EXPENSE'
+#         ).values('description').annotate(total=Sum('amount')).order_by('-total')[:5]
+        
+#         for source in expenses_by_source:
+#             if source['total'] > 0:
+#                 vendor_data.append({
+#                     'name': source['description'] or 'Unknown Vendor',
+#                     'total_payable': float(source['total']),
+#                     'total_paid': 0,
+#                     'outstanding_balance': float(source['total'])
+#                 })
+    
+#     # Create category objects for the chart
+#     category_objects = []
+#     for i, category in enumerate(categories):
+#         if i < len(category_totals) and i < len(category_colors):
+#             category_objects.append({
+#                 'name': category,
+#                 'amount': category_totals[i],
+#                 'color': category_colors[i]
+#             })
+    
+#     # Prepare context
+#     context = {
+#         'title': 'Financial Analytics',
+#         'summary': {
+#             # Convert Decimal to float for JSON serialization
+#             'total_income': float(total_income),
+#             'total_expenses': float(total_expenses),
+#             'net_balance': float(net_balance),
+#             'savings_rate': float(round(savings_rate, 1))
+#         },
+#         'monthly_data': json.dumps(monthly_data),
+#         'categories': json.dumps(category_objects),
+#         'category_totals': json.dumps(category_totals),
+#         'category_colors': json.dumps(category_colors[:len(categories)]),
+#         'recent_transactions': json.dumps(recent_transactions_data),
+#         'customer_data': json.dumps(customer_data),
+#         'vendor_data': json.dumps(vendor_data)
+#     }
+    
+#     return render(request, 'analytics.html', context)
 
 
 class ConversationView(APIView):
@@ -295,11 +945,23 @@ class MessageView(APIView):
         
         # Update customer/vendor balances using Decimal for precision
         if transaction_type == 'INCOME' and customer:
-            customer.total_receivable = (Decimal(str(customer.total_receivable or '0')) + amount).quantize(Decimal('0.00'))
+            # Ensure total_receivable is a Decimal before adding amount
+            if customer.total_receivable is None:
+                customer.total_receivable = Decimal('0.00')
+            elif not isinstance(customer.total_receivable, Decimal):
+                customer.total_receivable = Decimal(str(customer.total_receivable))
+                
+            customer.total_receivable = (customer.total_receivable + amount).quantize(Decimal('0.00'))
             # outstanding_balance is a read-only property, no need to set it
             customer.save()
         elif transaction_type == 'EXPENSE' and vendor:
-            vendor.total_payable = (Decimal(str(vendor.total_payable or '0')) + amount).quantize(Decimal('0.00'))
+            # Ensure total_payable is a Decimal before adding amount
+            if vendor.total_payable is None:
+                vendor.total_payable = Decimal('0.00')
+            elif not isinstance(vendor.total_payable, Decimal):
+                vendor.total_payable = Decimal(str(vendor.total_payable))
+                
+            vendor.total_payable = (vendor.total_payable + amount).quantize(Decimal('0.00'))
             # outstanding_balance is a read-only property, no need to set it
             vendor.save()
 
@@ -593,7 +1255,10 @@ class MessageView(APIView):
             if transactions:
                 ai_response += "\n\nHere are the transactions I found:\n"
                 for idx, tx in enumerate(transactions[:10]):  # Show only first 10 for brevity
-                    amount_str = f"₹{tx.get('paid_amount', 'N/A')}/{tx.get('expected_amount', tx.get('paid_amount', 'N/A'))}"
+                    paid = tx.get('paid_amount', '0')
+                    expected = tx.get('expected_amount', paid)
+                    # Format as plain numbers without currency symbols
+                    amount_str = f"{paid}/{expected}" if paid != expected else f"{paid}"
                     ai_response += f"{idx+1}. {tx.get('date', 'N/A')} - {tx.get('description', 'N/A')} - {amount_str} ({tx.get('status', 'N/A')})\n"
                     
                 if len(transactions) > 10:

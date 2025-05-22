@@ -1,141 +1,91 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block content %}
-<div class="d-flex">
-    <!-- Side Navbar -->
-    <div class="side-navbar bg-dark text-white shadow" id="sideNavbar">
-        <div class="side-navbar-header p-3 border-bottom border-secondary">
-            <h4 class="mb-0 d-flex align-items-center">
-                <i class="fas fa-chart-line mr-2"></i>
-                
-            </h4>
+<div class="d-flex" id="dashboard-wrapper">
+    <div class="side-navbar bg-dark text-white shadow-lg" id="sideNavbar">
+        <div class="side-navbar-header p-3 border-bottom border-secondary d-flex align-items-center">
+            {# REMOVED explicit "Counto AI" name, assuming base.html navbar is visible #}
+            {# You can keep an icon or a generic title like "Menu" or "Dashboard" #}
+            <i class="fas fa-th-large fa-lg me-2" style="color: #3498db;"></i> <h4 class="mb-0 ms-2">Menu</h4>
         </div>
-        
+
         <div class="p-3">
             <div class="user-profile mb-4 text-center">
                 <div class="user-avatar mb-2 mx-auto">
-                    <i class="fas fa-user-circle fa-3x"></i>
+                    <i class="fas fa-user-circle fa-3x" style="color: #adb5bd;"></i>
                 </div>
-                <h6 class="mb-1">{{ user.username }}</h6>
-                <p class="text-muted small mb-0"></p>
+                <h6 class="mb-1" style="font-weight: 600;">{{ user.username }}</h6>
+                <p class="text-muted small mb-0">{{ user.email }}</p>
             </div>
-            
+
             <ul class="nav-menu list-unstyled mb-0">
                 <li class="nav-item active">
                     <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
-                        <i class="fas fa-home fa-fw mr-3"></i>
+                        <i class="fas fa-comments fa-fw me-3"></i>
                         <span>Chat</span>
                     </a>
                 </li>
-                
-                <li class="nav-item">
-                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2" 
-                       data-toggle="collapse" data-target="#chatHistorySubmenu">
-                        <i class="fas fa-history fa-fw mr-3"></i>
-                        <span>Chat History</span>
-                        <i class="fas fa-chevron-down ml-auto"></i>
-                    </a>
-                    <div class="collapse" id="chatHistorySubmenu">
-                        <ul class="nav-submenu list-unstyled pl-4">
-                            <li class="chat-history-item">
-                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
-                                    <i class="fas fa-comment-dots fa-fw mr-2"></i>
-                                    <span>Budget Planning</span>
-                                    <span class="badge badge-light ml-auto">2d</span>
-                                </a>
-                            </li>
-                            <li class="chat-history-item">
-                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
-                                    <i class="fas fa-comment-dots fa-fw mr-2"></i>
-                                    <span>Investment Advice</span>
-                                    <span class="badge badge-light ml-auto">5d</span>
-                                </a>
-                            </li>
-                            <li class="view-all">
-                                <a href="#" class="nav-link text-center small p-2">
-                                    <span>View All History</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </li>
-                
-                <li class="nav-item">
-                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2" 
-                       data-toggle="collapse" data-target="#documentStoreSubmenu">
-                        <i class="fas fa-folder fa-fw mr-3"></i>
-                        <span>Document Store</span>
-                        <i class="fas fa-chevron-down ml-auto"></i>
-                    </a>
-                    <div class="collapse" id="documentStoreSubmenu">
-                        <ul class="nav-submenu list-unstyled pl-4">
-                            <li class="document-item">
-                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
-                                    <i class="fas fa-file-alt fa-fw mr-2"></i>
-                                    <span>Budget Report</span>
-                                </a>
-                            </li>
-                            <li class="document-item">
-                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
-                                    <i class="fas fa-file-invoice-dollar fa-fw mr-2"></i>
-                                    <span>Tax Documents</span>
-                                </a>
-                            </li>
-                            <li class="document-item">
-                                <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1">
-                                    <i class="fas fa-file-upload fa-fw mr-2"></i>
-                                    <span>Upload New</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </li>
-                
+
                 <li class="nav-item">
                     <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
-                        <i class="fas fa-chart-bar fa-fw mr-3"></i>
+                        <i class="fas fa-history fa-fw me-3"></i>
+                        <span>Chat History</span>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
+                        <i class="fas fa-folder fa-fw me-3"></i>
+                        <span>Document Store</span>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{% url 'analytics' %}" class="nav-link d-flex align-items-center p-3 rounded mb-2">
+                        <i class="fas fa-chart-bar fa-fw me-3"></i>
                         <span>Analytics</span>
                     </a>
                 </li>
-                
-                <li class="nav-item">
+
+                {# Pushing Settings to the bottom - Logout is now handled by base.html navbar #}
+                <li class="nav-item mt-auto pt-3 border-top border-secondary">
                     <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
-                        <i class="fas fa-cog fa-fw mr-3"></i>
+                        <i class="fas fa-cog fa-fw me-3"></i>
                         <span>Settings</span>
                     </a>
                 </li>
-                
+                {# REMOVED LOGOUT LINK FROM HERE - IT'S IN base.html #}
             </ul>
         </div>
     </div>
-    
-    <!-- Main Content Area -->
-    <div class="content-wrapper flex-grow-1">
-        <section class="main-content py-4">
-            <div class="container-fluid px-4">
-                <!-- Toggle Button for Mobile -->
-                <button id="sidebarToggleBtn" class="btn btn-primary btn-sm mb-3 d-md-none">
-                    <i class="fas fa-bars"></i>
+
+    <div class="content-wrapper flex-grow-1 p-0" style="overflow: hidden;">
+        <section class="main-content h-100 d-flex flex-column" style="height: 100vh;">
+            <div class="container-fluid h-100 d-flex flex-column" style="padding: 1rem;">
+                <button id="sidebarToggleBtn" class="btn btn-outline-primary btn-sm mb-3 d-md-none">
+                    <i class="fas fa-bars"></i> Menu
                 </button>
-                
-                <!-- Header removed as requested -->
-                
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="card shadow-sm border-0 rounded-lg h-100">
-                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
-                                <h4 class="mb-0 font-weight-bold">Financial Assistant</h4>
+
+                <div class="row flex-grow-1" style="margin: 0; height: calc(100% - 3rem);">
+                    <div class="col-12 h-100 p-0 d-flex flex-column" style="overflow: hidden;">
+                        <div class="card shadow-sm border-0 h-100 d-flex flex-column" style="width: 100%; max-width: 1200px; margin: 0 auto; border-radius: 0.5rem; overflow: hidden;">
+                            <div class="card-header bg-light text-dark d-flex justify-content-between align-items-center py-3 border-bottom" style="flex-shrink: 0;">
+                                <h4 class="mb-0 font-weight-bold d-flex align-items-center">
+                                    <i class="fas fa-robot me-2 text-primary"></i> Financial Assistant
+                                </h4>
                             </div>
-                            <div class="card-body d-flex flex-column p-0" style="height: 600px;">
-                                <div id="conversation" class="flex-grow-1 mb-0 overflow-auto p-4" style="background-color: #f8f9fa;">
-                                    <!-- Messages will be displayed here -->
+                            <div id="conversation" class="card-body p-0" style="flex: 1 1 auto; overflow-y: auto; background-color: #ffffff;">
+                                <div class="p-4">
+                                    <!-- Messages will be inserted here -->
                                 </div>
-                                
-                                <form id="messageForm" class="mt-auto p-3 border-top">
+                            </div>
+                            <div class="card-footer bg-white p-3 border-top" style="flex-shrink: 0;">
+                                <form id="messageForm" class="mt-auto">
                                     <div class="input-group">
-                                        <textarea class="form-control border-right-0 rounded-pill-left" id="messageInput" placeholder="How can I help with your finances today?" rows="2" style="border-top-right-radius: 0; border-bottom-right-radius: 0;"></textarea>
-                                        <button type="submit" class="btn btn-primary rounded-pill-right send-btn" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">
-                                            <i class="fas fa-paper-plane"></i>
+                                        <textarea class="form-control border-end-0" id="messageInput" placeholder="How can I help with your finances today?" rows="1" style="resize: none; border-radius: 0.375rem 0 0 0.375rem;"></textarea>
+                                        <button type="submit" class="btn btn-primary send-btn" style="border-radius: 0 0.375rem 0.375rem 0;">
+                                            <i class="fas fa-paper-plane me-1"></i>
                                             <span>Send</span>
                                         </button>
                                     </div>
@@ -150,431 +100,223 @@
 </div>
 
 <script>
+// Your existing JavaScript for dashboard.html (as provided previously)
+// Ensure the CSS styles for the sidebar and chat are either in a linked static file
+// or the <style> block within the script tag as you had, adjusting for the removal of logout.
 document.addEventListener('DOMContentLoaded', function() {
     const messageForm = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageInput');
     const conversation = document.getElementById('conversation');
     const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
     const sideNavbar = document.getElementById('sideNavbar');
+    const dashboardWrapper = document.getElementById('dashboard-wrapper');
+
     let conversationId = null;
-    
-    // Sidebar toggle for mobile
+
     sidebarToggleBtn.addEventListener('click', function() {
         sideNavbar.classList.toggle('active');
+        dashboardWrapper.classList.toggle('sidebar-active-mobile');
     });
-    
-    // Close sidebar when clicking outside on mobile
+
     document.addEventListener('click', function(event) {
         const isClickInsideNavbar = sideNavbar.contains(event.target);
         const isClickOnToggleBtn = sidebarToggleBtn.contains(event.target);
-        
         if (!isClickInsideNavbar && !isClickOnToggleBtn && window.innerWidth < 768 && sideNavbar.classList.contains('active')) {
             sideNavbar.classList.remove('active');
+            dashboardWrapper.classList.remove('sidebar-active-mobile');
         }
     });
-    
-    // Auto-resize textarea as user types
+
     messageInput.addEventListener('input', function() {
         this.style.height = 'auto';
-        const maxHeight = 120; // Maximum height in pixels
-        this.style.height = (this.scrollHeight > maxHeight ? maxHeight : this.scrollHeight) + 'px';
+        const maxHeight = 120;
+        this.style.height = Math.min(this.scrollHeight, maxHeight) + 'px';
     });
-    
-    // Function to add a message to the conversation
-    function addMessage(content, sender) {
+
+    function addMessage(content, sender, isHtml = false) {
         const messageDiv = document.createElement('div');
-        messageDiv.className = 'mb-4 d-flex ' + (sender === 'USER' ? 'justify-content-end' : 'justify-content-start');
-        
+        messageDiv.className = 'mb-3 d-flex ' + (sender === 'USER' ? 'justify-content-end' : 'justify-content-start');
         const messageBubble = document.createElement('div');
-        
+        messageBubble.style.maxWidth = '75%';
+        messageBubble.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
         if (sender === 'USER') {
-            messageBubble.className = 'message-bubble user-message p-3 rounded-lg bg-primary text-white';
+            messageBubble.className = 'message-bubble user-message p-3 rounded-3 bg-primary text-white';
         } else {
-            messageBubble.className = 'message-bubble ai-message p-3 rounded-lg bg-light border';
+            messageBubble.className = 'message-bubble ai-message p-3 rounded-3 bg-light border';
         }
-        
-        messageBubble.style.maxWidth = '80%';
-        messageBubble.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-        messageBubble.innerHTML = content;
-        
+        if (isHtml) {
+            messageBubble.innerHTML = content;
+        } else {
+            messageBubble.textContent = content;
+        }
         messageDiv.appendChild(messageBubble);
         conversation.appendChild(messageDiv);
         conversation.scrollTop = conversation.scrollHeight;
     }
-    
-    // Function to send a message to the API
+
     async function sendMessage(message) {
-        try {
-            // Add a typing indicator
-            const typingIndicator = document.createElement('div');
-            typingIndicator.className = 'mb-4 d-flex justify-content-start';
-            typingIndicator.id = 'typing-indicator';
-            
-            const typingBubble = document.createElement('div');
-            typingBubble.className = 'message-bubble ai-message p-3 rounded-lg bg-light border';
-            typingBubble.style.maxWidth = '80%';
-            typingBubble.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-            typingBubble.innerHTML = '<div class="typing-dots"><span>.</span><span>.</span><span>.</span></div>';
-            
-            typingIndicator.appendChild(typingBubble);
-            conversation.appendChild(typingIndicator);
-            conversation.scrollTop = conversation.scrollHeight;
-            
-            // Get CSRF token from cookie
-            function getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
+        const typingIndicatorId = 'typing-indicator-' + Date.now();
+        addMessage(`<div class="typing-dots"><span></span><span></span><span></span></div> Thinking...</div>`, 'AI_TYPING', true);
+        const typingIndicatorElement = conversation.lastElementChild;
+        if (typingIndicatorElement) typingIndicatorElement.id = typingIndicatorId;
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
                     }
                 }
-                return cookieValue;
             }
-            const csrftoken = getCookie('csrftoken');
-            
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        try {
             const response = await fetch('/api/messages/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrftoken,
                 },
-                credentials: 'same-origin', // Include cookies (session auth)
+                credentials: 'same-origin',
                 body: JSON.stringify({
                     content: message,
                     conversation_id: conversationId
                 })
             });
-            
-            // Remove typing indicator
-            const indicator = document.getElementById('typing-indicator');
-            if (indicator) {
-                indicator.remove();
-            }
-            
+            const indicatorToRemove = document.getElementById(typingIndicatorId);
+            if (indicatorToRemove) indicatorToRemove.remove();
             if (!response.ok) {
-                throw new Error('Failed to send message');
+                const errorData = await response.json().catch(() => ({ detail: 'Failed to send message. Server error.' }));
+                throw new Error(errorData.detail || 'Failed to send message');
             }
-            
             const data = await response.json();
             conversationId = data.conversation_id;
-            
-            // Display AI response
-            addMessage(data.message, 'AI');
-            
-            // If this is a new conversation, add it to the chat history
+            addMessage(data.message, 'AI', data.is_html);
             if (data.is_new_conversation) {
                 addConversationToHistory(data.conversation_id, message);
             }
-            
-            // Handle pending transaction if present
             if (data.has_pending_transaction) {
-                // You can add UI for transaction confirmation here
-                console.log('Pending transaction detected');
+                addMessage("<em>Note: A pending transaction related to this action has been recorded.</em>", "AI_INFO", true);
             }
-            
         } catch (error) {
-            // Remove typing indicator
-            const indicator = document.getElementById('typing-indicator');
-            if (indicator) {
-                indicator.remove();
-            }
-            
+            const indicatorToRemove = document.getElementById(typingIndicatorId);
+            if (indicatorToRemove) indicatorToRemove.remove();
             console.error('Error:', error);
-            addMessage('Sorry, there was an error processing your message.', 'AI');
+            addMessage('Sorry, there was an error processing your message: ' + error.message, 'AI_ERROR', true);
         }
     }
-    
-    // Function to add new conversation to history sidebar
+
     function addConversationToHistory(id, title) {
-        // Get first few words of message for the title
-        const shortTitle = title.split(' ').slice(0, 3).join(' ') + (title.split(' ').length > 3 ? '...' : '');
-        
+        const shortTitle = title.split(' ').slice(0, 4).join(' ') + (title.split(' ').length > 4 ? '...' : '');
         const chatHistorySubmenu = document.getElementById('chatHistorySubmenu');
+        if (!chatHistorySubmenu) return;
         const viewAllItem = chatHistorySubmenu.querySelector('.view-all');
-        
-        // Create new history item
         const newHistoryItem = document.createElement('li');
         newHistoryItem.className = 'chat-history-item';
         newHistoryItem.innerHTML = `
             <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1" data-conversation-id="${id}">
-                <i class="fas fa-comment-dots fa-fw mr-2"></i>
+                <i class="fas fa-comment-dots fa-fw me-2"></i>
                 <span>${shortTitle}</span>
-                <span class="badge badge-light ml-auto">now</span>
-            </a>
-        `;
-        
-        // Insert before "View All" link
+                <span class="badge bg-info-subtle text-info-emphasis rounded-pill ms-auto">new</span>
+            </a>`;
         if (viewAllItem) {
             chatHistorySubmenu.insertBefore(newHistoryItem, viewAllItem);
         } else {
             chatHistorySubmenu.appendChild(newHistoryItem);
         }
-        
-        // Show the submenu if it's not already visible
         if (!chatHistorySubmenu.classList.contains('show')) {
-            chatHistorySubmenu.classList.add('show');
+            new bootstrap.Collapse(chatHistorySubmenu, { toggle: true });
         }
-        
-        // Add click event to load this conversation
         newHistoryItem.querySelector('a').addEventListener('click', function(e) {
             e.preventDefault();
-            // Here you would load the conversation based on its ID
-            // loadConversation(id);
+            addMessage(`Loading conversation: "${shortTitle}"... (Functionality to be implemented)`, 'SYSTEM');
+            conversationId = id;
         });
     }
-    
-    // Handle form submission
+
     messageForm.addEventListener('submit', function(e) {
         e.preventDefault();
         const message = messageInput.value.trim();
-        
         if (message) {
             addMessage(message, 'USER');
             messageInput.value = '';
-            messageInput.style.height = 'auto'; // Reset height
+            messageInput.style.height = 'auto';
             messageInput.focus();
             sendMessage(message);
         }
     });
-    
-    // Make textarea expand as user types and handle enter key
+
     messageInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            messageForm.dispatchEvent(new Event('submit'));
+            messageForm.dispatchEvent(new Event('submit', {'bubbles': true, 'cancelable': true}));
         }
     });
-    
-    // Welcome message
+
     addMessage('Hello! I\'m your financial assistant. How can I help you today?', 'AI');
-    
-    // Add some CSS for animations and better styling
+
     const style = document.createElement('style');
     style.textContent = `
-        /* Chat Container Styles */
-        #conversation {
-            max-height: 400px; /* Adjust the height as needed */
-            overflow-y: auto;
+        /* Your existing dashboard CSS from the previous response, ensure it's included */
+        /* Example: */
+        #dashboard-wrapper.sidebar-active-mobile > .content-wrapper {
+            filter: blur(2px) brightness(0.9);
+            pointer-events: none;
         }
-
-        /* Side Navbar Styles */
         .side-navbar {
-            width: 280px;
-            height: 100vh;
-            position: sticky;
-            top: 0;
-            left: 0;
-            transition: all 0.3s ease;
-            background-color: #2c3e50;
-            background-color: #2c3e50 !important;
-            z-index: 1000;
-            overflow-y: auto;
+            width: 260px; height: 100vh; position: sticky; top: 0;
+            transition: all 0.3s ease; background-color: #232e3c !important;
+            z-index: 1030; overflow-y: auto;
         }
-        
         .side-navbar-header {
-            height: 70px;
-            display: flex;
-            align-items: center;
+            height: 60px; display: flex; align-items: center;
+            padding-left: 1.25rem; padding-right: 1.25rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1) !important;
         }
-        
-        .user-avatar {
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-        }
-        
+        .user-profile .user-avatar i { color: #6c757d; }
         .nav-menu .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            transition: all 0.2s ease;
+            color: rgba(255, 255, 255, 0.75); font-weight: 500;
+            transition: all 0.2s ease; letter-spacing: 0.5px;
         }
-        
-        .nav-menu .nav-link:hover, 
+        .nav-menu .nav-link:hover,
         .nav-menu .nav-item.active .nav-link {
-            color: #fff;
-            background-color: #2c3e50;
+            color: #ffffff; background-color: rgba(255, 255, 255, 0.1);
+            border-left: 3px solid #3498db; padding-left: calc(1.5rem - 3px);
         }
-        
-        .nav-submenu .nav-link {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.9rem;
-        }
-        
-        .nav-submenu .nav-link:hover {
-            color: #fff;
-            background-color:  #2c3e50;
-        }
-        
-        /* Content wrapper */
-        .content-wrapper {
-            min-height: 100vh;
-            transition: all 0.3s ease;
-        }
-        
-        /* Mobile Styles */
+        .nav-submenu .nav-link { color: rgba(255, 255, 255, 0.65); font-size: 0.875rem; }
+        .nav-submenu .nav-link:hover { color: #fff; background-color: rgba(255, 255, 255, 0.05); }
+        .nav-menu .nav-item.mt-auto { margin-top: auto !important; }
+        .content-wrapper { min-height: 100vh; background-color: #eef1f5; }
         @media (max-width: 767.98px) {
-            .side-navbar {
-                position: fixed;
-                left: -280px;
-                box-shadow: 5px 0 15px  #2c3e50;
-            }
-            
-            .side-navbar.active {
-                left: 0;
-            }
-            
-            .content-wrapper {
-                margin-left: 0;
-            }
+            .side-navbar { position: fixed; left: -260px; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
+            .side-navbar.active { left: 0; }
         }
-        
-        /* Message Styles */
-        .message-bubble {
-            transition: all 0.3s ease;
-            animation: fadeIn 0.3s;
-            word-wrap: break-word;
-            word-break: break-word;
-        }
-        
-        .user-message {
-            border-bottom-right-radius: 0.5rem !important;
-            border-bottom-left-radius: 1.5rem !important;
-            border-top-left-radius: 1.5rem !important;
-            border-top-right-radius: 1.5rem !important;
-        }
-        
-        .ai-message {
-            border-bottom-right-radius: 1.5rem !important;
-            border-bottom-left-radius: 0.5rem !important;
-            border-top-left-radius: 1.5rem !important;
-            border-top-right-radius: 1.5rem !important;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .typing-dots span {
-            animation: typing 1.4s infinite;
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #888;
-            margin: 0 2px;
-        }
-        
-        .typing-dots span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-        
-        .typing-dots span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-        
-        @keyframes typing {
-            0% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-            100% { transform: translateY(0); }
-        }
-        
-        .rounded-pill-left {
-            border-top-left-radius: 50rem !important;
-            border-bottom-left-radius: 50rem !important;
-        }
-        
-        .rounded-pill-right {
-            border-top-right-radius: 50rem !important;
-            border-bottom-right-radius: 50rem !important;
-        }
-        
-        #conversation::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        #conversation::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        
-        #conversation::-webkit-scrollbar-thumb {
-            background: #ccc;
-            border-radius: 10px;
-        }
-        
-        #conversation::-webkit-scrollbar-thumb:hover {
-            background: #aaa;
-        }
-        
-        #messageInput {
-            min-height: 44px;
-            max-height: 120px;
-            overflow-y: auto;
-            resize: none;
-        }
-        
-        #messageInput:focus {
-            box-shadow: none;
-            border-color: #ced4da;
-        }
-        
-        .send-btn {
-            transition: all 0.2s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .send-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
-        }
-        
-        .send-btn:active {
-            transform: translateY(0);
-        }
-        
-        .send-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: inherit;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-        }
-        
-        .send-btn:hover::before {
-            transform: translateX(0);
-        }
-        
-        /* Scrollbar for sidebar */
-        .side-navbar::-webkit-scrollbar {
-            width: 4px;
-        }
-        
-        .side-navbar::-webkit-scrollbar-track {
-            background:  #2c3e50;
-        }
-        
-        .side-navbar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-        }
-        
-        .side-navbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
+        .message-bubble { animation: fadeIn 0.3s ease-out; word-wrap: break-word; }
+        .user-message { background-color: #0d6efd; color: white; border-radius: 1rem 1rem 0.25rem 1rem !important; }
+        .ai-message { background-color: #e9ecef; color: #212529; border: none; border-radius: 1rem 1rem 1rem 0.25rem !important; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .typing-dots { display: flex; align-items: center; font-style: italic; color: #6c757d; }
+        .typing-dots span { animation: typing 1.2s infinite ease-in-out; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #6c757d; margin: 0 2px; }
+        .typing-dots span:nth-child(1) { animation-delay: 0s; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0.5); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
+        #conversation { scroll-behavior: smooth; }
+        #conversation::-webkit-scrollbar { width: 6px; }
+        #conversation::-webkit-scrollbar-track { background: transparent; }
+        #conversation::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 10px; }
+        #conversation::-webkit-scrollbar-thumb:hover { background: #adb5bd; }
+        #messageInput { border-radius: 0.375rem 0 0 0.375rem; transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
+        #messageInput:focus { border-color: #86b7fe; box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25); z-index: 10; }
+        .send-btn { border-radius: 0 0.375rem 0.375rem 0; z-index: 5; }
+        .send-btn i { transition: transform 0.2s ease-in-out; }
+        .send-btn:hover i { transform: translateX(2px) rotate(-15deg); }
     `;
     document.head.appendChild(style);
 });

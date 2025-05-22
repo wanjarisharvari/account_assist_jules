@@ -75,7 +75,18 @@ class Customer(models.Model):
     @property
     def outstanding_balance(self):
         """Amount still to be received from customer"""
-        return self.total_receivable - self.total_received
+        # Ensure both values are Decimal before subtraction
+        if not isinstance(self.total_receivable, Decimal):
+            total_receivable = Decimal(str(self.total_receivable or '0'))
+        else:
+            total_receivable = self.total_receivable
+            
+        if not isinstance(self.total_received, Decimal):
+            total_received = Decimal(str(self.total_received or '0'))
+        else:
+            total_received = self.total_received
+            
+        return (total_receivable - total_received).quantize(Decimal('0.00'))
 
     @property
     def is_overdue(self):
@@ -129,7 +140,18 @@ class Vendor(models.Model):
     @property
     def outstanding_balance(self):
         """Amount still to be paid to vendor"""
-        return self.total_payable - self.total_paid
+        # Ensure both values are Decimal before subtraction
+        if not isinstance(self.total_payable, Decimal):
+            total_payable = Decimal(str(self.total_payable or '0'))
+        else:
+            total_payable = self.total_payable
+            
+        if not isinstance(self.total_paid, Decimal):
+            total_paid = Decimal(str(self.total_paid or '0'))
+        else:
+            total_paid = self.total_paid
+            
+        return (total_payable - total_paid).quantize(Decimal('0.00'))
 
     def update_balances(self):
         """Recalculate balance from related transactions"""
