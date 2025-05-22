@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from decimal import Decimal
 
 # Create your models here.
 class Conversation(models.Model):
@@ -27,35 +29,14 @@ class Message(models.Model):
         
     def __str__(self):
         return f"{self.sender} message in conversation {self.conversation_id}"
-    
-# class Transaction(models.Model):
-#     TYPE_CHOICES = [
-#         ('INCOME', 'Income'),
-#         ('EXPENSE', 'Expense'),
-#     ]
-    
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     date = models.DateField()
-#     description = models.CharField(max_length=500)
-#     category = models.CharField(max_length=100)
-#     amount = models.DecimalField(max_digits=10, decimal_places=2)
-#     transaction_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-#     payment_method = models.CharField(max_length=500, blank=True, null=True)
-#     reference_number = models.CharField(max_length=500, blank=True, null=True)
-#     party = models.CharField(max_length=500, blank=True, null=True)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-    
-#     def __str__(self):
-#         return f"{self.description} - {self.amount}"
-    
+
 class PendingTransaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE)
     date = models.DateField(null=True, blank=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     category = models.CharField(max_length=100, null=True, blank=True)
-    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     transaction_type = models.CharField(max_length=10, null=True, blank=True)
     payment_method = models.CharField(max_length=50, blank=True, null=True)
     reference_number = models.CharField(max_length=50, blank=True, null=True)
@@ -72,10 +53,51 @@ class Customer(models.Model):
     phone = models.CharField(max_length=20, blank=True, null=True)
     gst_number = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
+    
+    # Balance tracking
+    total_receivable = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total_received = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'name']),
+            models.Index(fields=['user', 'is_active']),
+        ]
 
     def __str__(self):
         return self.name
+
+    @property
+    def outstanding_balance(self):
+        """Amount still to be received from customer"""
+        return self.total_receivable - self.total_received
+
+    @property
+    def is_overdue(self):
+        """Check if customer has overdue payments"""
+        from django.utils import timezone
+        from datetime import timedelta
+        thirty_days_ago = timezone.now().date() - timedelta(days=30)
+        
+        return self.invoices.filter(
+            date__lt=thirty_days_ago,
+            amount_received__lt=models.F('amount_due')
+        ).exists()
+
+    def update_balances(self):
+        """Recalculate balance from related transactions"""
+        invoices = self.invoices.aggregate(
+            total_due=models.Sum('amount_due', default=0),
+            total_received=models.Sum('amount_received', default=0)
+        )
+        self.total_receivable = invoices['total_due']
+        self.total_received = invoices['total_received']
+        self.save()
 
 
 class Vendor(models.Model):
@@ -85,22 +107,46 @@ class Vendor(models.Model):
     phone = models.CharField(max_length=20, blank=True, null=True)
     gst_number = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
+    
+    # Balance tracking
+    total_payable = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    total_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'name']),
+            models.Index(fields=['user', 'is_active']),
+        ]
 
     def __str__(self):
         return self.name
 
+    @property
+    def outstanding_balance(self):
+        """Amount still to be paid to vendor"""
+        return self.total_payable - self.total_paid
+
+    def update_balances(self):
+        """Recalculate balance from related transactions"""
+        bills = self.bills.aggregate(
+            total_due=models.Sum('amount_due', default=0),
+            total_paid=models.Sum('amount_paid', default=0)
+        )
+        self.total_payable = bills['total_due']
+        self.total_paid = bills['total_paid']
+        self.save()
+
 
 class Transaction(models.Model):
+    """Simplified transaction model - just records what happened"""
     TYPE_CHOICES = [
         ('INCOME', 'Income'),
         ('EXPENSE', 'Expense'),
-    ]
-
-    STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
-        ('PARTIAL', 'Partial'),
-        ('PAID', 'Paid'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -108,28 +154,169 @@ class Transaction(models.Model):
     description = models.CharField(max_length=255)
     category = models.CharField(max_length=100, blank=True)
     transaction_type = models.CharField(max_length=7, choices=TYPE_CHOICES)
-
-    expected_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PAID')
-
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    
+    # Optional party reference (but not required)
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True)
-
+    
+    # Payment details
     payment_method = models.CharField(max_length=100, blank=True, null=True)
     reference_number = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, null=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'date']),
+            models.Index(fields=['user', 'transaction_type']),
+            models.Index(fields=['user', 'category']),
+            models.Index(fields=['date', 'transaction_type']),
+        ]
+
+    def __str__(self):
+        party = f" - {self.customer or self.vendor}" if (self.customer or self.vendor) else ""
+        return f"{self.transaction_type} - ₹{self.amount} - {self.description}{party}"
+
+    def clean(self):
+        if self.customer and self.vendor:
+            raise ValidationError("Transaction cannot have both customer and vendor")
+
+
+class Invoice(models.Model):
+    """Track what customers owe"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='invoices')
+    
+    invoice_number = models.CharField(max_length=50, unique=True)
+    date = models.DateField()
+    due_date = models.DateField(null=True, blank=True)
+    
+    description = models.CharField(max_length=255)
+    amount_due = models.DecimalField(max_digits=12, decimal_places=2)
+    amount_received = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'customer']),
+            models.Index(fields=['date', 'due_date']),
+        ]
+
+    def __str__(self):
+        return f"Invoice {self.invoice_number} - {self.customer.name}"
+
+    @property
+    def balance_due(self):
+        return self.amount_due - self.amount_received
+
+    @property
+    def is_paid(self):
+        return self.amount_received >= self.amount_due
+
+    @property
+    def is_overdue(self):
+        from django.utils import timezone
+        return self.due_date and self.due_date < timezone.now().date() and not self.is_paid
+
+    def add_payment(self, amount, transaction=None):
+        """Add a payment to this invoice"""
+        self.amount_received += amount
+        self.save()
+        
+        # Create payment record
+        InvoicePayment.objects.create(
+            invoice=self,
+            amount=amount,
+            transaction=transaction,
+            date=transaction.date if transaction else timezone.now().date()
+        )
+        
+        # Update customer balance
+        self.customer.update_balances()
+
+
+class Bill(models.Model):
+    """Track what we owe vendors"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='bills')
+    
+    bill_number = models.CharField(max_length=50)
+    date = models.DateField()
+    due_date = models.DateField(null=True, blank=True)
+    
+    description = models.CharField(max_length=255)
+    amount_due = models.DecimalField(max_digits=12, decimal_places=2)
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'vendor']),
+            models.Index(fields=['date', 'due_date']),
+        ]
+        unique_together = ['user', 'bill_number']
+
+    def __str__(self):
+        return f"Bill {self.bill_number} - {self.vendor.name}"
+
+    @property
+    def balance_due(self):
+        return self.amount_due - self.amount_paid
+
+    @property
+    def is_paid(self):
+        return self.amount_paid >= self.amount_due
+
+    @property
+    def is_overdue(self):
+        from django.utils import timezone
+        return self.due_date and self.due_date < timezone.now().date() and not self.is_paid
+
+    def add_payment(self, amount, transaction=None):
+        """Add a payment to this bill"""
+        self.amount_paid += amount
+        self.save()
+        
+        # Create payment record
+        BillPayment.objects.create(
+            bill=self,
+            amount=amount,
+            transaction=transaction,
+            date=transaction.date if transaction else timezone.now().date()
+        )
+        
+        # Update vendor balance
+        self.vendor.update_balances()
+
+
+class InvoicePayment(models.Model):
+    """Track payments received against invoices"""
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    date = models.DateField()
+    transaction = models.ForeignKey(Transaction, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True, null=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.transaction_type} - ₹{self.paid_amount}/{self.expected_amount or self.paid_amount} - {self.description}"
+        return f"Payment ₹{self.amount} for {self.invoice.invoice_number}"
 
-    def update_payment_status(self):
-        if self.paid_amount == 0:
-            self.status = 'PENDING'
-        elif self.paid_amount < (self.expected_amount or self.paid_amount):
-            self.status = 'PARTIAL'
-        else:
-            self.status = 'PAID'
-        self.save()
+
+class BillPayment(models.Model):
+    """Track payments made against bills"""
+    bill = models.ForeignKey(Bill, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    date = models.DateField()
+    transaction = models.ForeignKey(Transaction, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Payment ₹{self.amount} for {self.bill.bill_number}"

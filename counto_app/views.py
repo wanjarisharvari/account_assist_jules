@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
+from decimal import Decimal, InvalidOperation
 from datetime import datetime
 import logging
 
@@ -130,6 +131,9 @@ class MessageView(APIView):
             else:
                 conversation = Conversation.objects.create(user=request.user)
             
+            # Store conversation in the instance for use in handler methods
+            self.current_conversation = conversation
+            
             # Save user message
             user_message = request.data.get('content', '')
             Message.objects.create(
@@ -218,7 +222,7 @@ class MessageView(APIView):
         # Handle date conversion
         date_str = extracted_data.get('date')
         transaction_date = None
-        
+        print("handling transaction data")
         if date_str:
             for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y']:
                 try:
@@ -231,93 +235,168 @@ class MessageView(APIView):
         transaction_date = transaction_date or timezone.now().date()
         
         # Handle amount conversion
-        expected_amount = self._parse_amount(extracted_data.get('expected_amount', extracted_data.get('amount', '0')))
-        paid_amount = self._parse_amount(extracted_data.get('paid_amount', expected_amount))
+        amount = self._parse_amount(extracted_data.get('paid_amount', extracted_data.get('amount', '0')))
         
-        # Determine transaction status
-        status = 'PAID'  # Default
-        if paid_amount == 0:
-            status = 'PENDING'
-        elif paid_amount < expected_amount:
-            status = 'PARTIAL'
+        # Determine transaction type (INCOME or EXPENSE)
+        transaction_type = extracted_data.get('transaction_type', 'EXPENSE')
+        if transaction_type not in ['INCOME', 'EXPENSE']:
+            transaction_type = 'EXPENSE'
         
         # Get or create customer/vendor if applicable
         customer = None
         vendor = None
         
-        if extracted_data.get('customer_name'):
-            customer, _ = Customer.objects.get_or_create(
-                user=user,
-                name=extracted_data.get('customer_name'),
-                defaults={
-                    'email': extracted_data.get('customer_email', ''),
-                    'phone': extracted_data.get('customer_phone', ''),
-                    'gst_number': extracted_data.get('customer_gst', ''),
-                    'address': extracted_data.get('customer_address', '')
-                }
-            )
+        # Extract the customer/vendor based on name
+        customer_name = extracted_data.get('customer')
+        vendor_name = extracted_data.get('vendor')
         
-        if extracted_data.get('vendor_name'):
-            vendor, _ = Vendor.objects.get_or_create(
-                user=user,
-                name=extracted_data.get('vendor_name'),
-                defaults={
-                    'email': extracted_data.get('vendor_email', ''),
-                    'phone': extracted_data.get('vendor_phone', ''),
-                    'gst_number': extracted_data.get('vendor_gst', ''),
-                    'address': extracted_data.get('vendor_address', '')
-                }
-            )
+        # For INCOME transactions, handle customer reference
+        if transaction_type == 'INCOME' and customer_name:
+            try:
+                customer = Customer.objects.get(user=user, name=customer_name)
+            except Customer.DoesNotExist:
+                customer = Customer.objects.create(
+                    user=user,
+                    name=customer_name,
+                    email=extracted_data.get('customer_email', ''),
+                    phone=extracted_data.get('customer_phone', ''),
+                    gst_number=extracted_data.get('customer_gst', ''),
+                    address=extracted_data.get('customer_address', '')
+                )
+        
+        # For EXPENSE transactions, handle vendor reference
+        if transaction_type == 'EXPENSE' and vendor_name:
+            try:
+                vendor = Vendor.objects.get(user=user, name=vendor_name)
+            except Vendor.DoesNotExist:
+                vendor = Vendor.objects.create(
+                    user=user,
+                    name=vendor_name,
+                    email=extracted_data.get('vendor_email', ''),
+                    phone=extracted_data.get('vendor_phone', ''),
+                    gst_number=extracted_data.get('vendor_gst', ''),
+                    address=extracted_data.get('vendor_address', '')
+                )
 
-        # Create transaction record
-        transaction_data = {
-            'date': transaction_date,
-            'description': extracted_data.get('description', ''),
-            'category': extracted_data.get('category', ''),
-            'transaction_type': extracted_data.get('transaction_type', 'EXPENSE'),
-            'expected_amount': expected_amount,
-            'paid_amount': paid_amount,
-            'status': status,
-            'customer': customer,
-            'vendor': vendor,
-            'payment_method': extracted_data.get('payment_method', ''),
-            'reference_number': extracted_data.get('reference_number', '')
-        }
-
-        # Save to database
+        # Create transaction record based on new Transaction model
         transaction = Transaction.objects.create(
             user=user,
-            **transaction_data
+            date=transaction_date,
+            description=extracted_data.get('description', ''),
+            category=extracted_data.get('category', ''),
+            transaction_type=transaction_type,
+            amount=amount,
+            customer=customer,
+            vendor=vendor,
+            payment_method=extracted_data.get('payment_method', ''),
+            reference_number=extracted_data.get('reference_number', ''),
+            notes=extracted_data.get('notes', '')
         )
+        
+        # Update customer/vendor balances using Decimal for precision
+        if transaction_type == 'INCOME' and customer:
+            customer.total_receivable = (Decimal(str(customer.total_receivable or '0')) + amount).quantize(Decimal('0.00'))
+            # outstanding_balance is a read-only property, no need to set it
+            customer.save()
+        elif transaction_type == 'EXPENSE' and vendor:
+            vendor.total_payable = (Decimal(str(vendor.total_payable or '0')) + amount).quantize(Decimal('0.00'))
+            # outstanding_balance is a read-only property, no need to set it
+            vendor.save()
 
-        # Sync with Google Sheets
-        sheets_success = False
-        sheets_error = None
-        if self.sheets_enabled:
-            try:
-                sheets_data = transaction_data.copy()
-                # Convert model instances to names for sheets
-                if customer:
-                    sheets_data['customer'] = customer.name
-                if vendor:
-                    sheets_data['vendor'] = vendor.name
-                    
-                sheets_success = self.sheets_service.add_transaction(sheets_data)
-            except Exception as e:
-                sheets_error = str(e)
-                logging.error(f"Google Sheets sync failed: {sheets_error}")
+        # Create a pending transaction for reference (if needed)
+        pending_transaction = PendingTransaction.objects.create(
+            user=user,
+            conversation=self.current_conversation,  # Use the stored conversation
+            date=transaction_date,
+            description=transaction.description,
+            category=transaction.category,
+            amount=transaction.amount,
+            transaction_type=transaction.transaction_type,
+            payment_method=transaction.payment_method,
+            reference_number=transaction.reference_number,
+            party=customer_name if transaction_type == 'INCOME' else vendor_name
+        )
 
         # Update AI response
         if "Would you like me to record this transaction?" in ai_response:
             ai_response = ai_response.split("Would you like me to record this transaction?")[0]
-            ai_response += "\n\n✅ Transaction saved automatically!\n"
             
+            # Prepare transaction details for the response
+            transaction_type = 'Income' if transaction.transaction_type == 'INCOME' else 'Expense'
+            party = customer.name if customer else vendor.name if vendor else 'N/A'
+            
+            ai_response += f"\n\n✅ {transaction_type} of ₹{amount:,.2f} "
+            ai_response += f"for {party} has been recorded!\n"
+            
+            # Add financial summary for customer/vendor
+            if customer:
+                ai_response += f"\n💳 Customer Balance Update for {customer.name}:"
+                ai_response += f"\n• Total Receivable: ₹{customer.total_receivable:,.2f}"
+                ai_response += f"\n• Total Received: ₹{customer.total_received:,.2f}"
+                ai_response += f"\n• Outstanding Balance: ₹{customer.outstanding_balance:,.2f}"
+            elif vendor:
+                ai_response += f"\n💳 Vendor Balance Update for {vendor.name}:"
+                ai_response += f"\n• Total Payable: ₹{vendor.total_payable:,.2f}"
+                ai_response += f"\n• Total Paid: ₹{vendor.total_paid:,.2f}"
+                ai_response += f"\n• Outstanding Balance: ₹{vendor.outstanding_balance:,.2f}"
+            
+            # Sync with Google Sheets
+            sheets_success = False
+            sheets_error = None
+            if self.sheets_enabled:
+                try:
+                    # Sync transaction
+                    sheets_data = {
+                        'date': transaction_date,
+                        'description': transaction.description,
+                        'category': transaction.category,
+                        'transaction_type': transaction.transaction_type,
+                        'amount': float(str(amount)),  # Convert Decimal to string then to float
+                        'payment_method': transaction.payment_method or '',
+                        'reference_number': transaction.reference_number or '',
+                        'customer': customer.name if customer else '',
+                        'vendor': vendor.name if vendor else '',
+                        'notes': transaction.notes or ''
+                    }
+                    sheets_success = self.sheets_service.add_transaction(sheets_data)
+                    
+                    # Update customer/vendor in Google Sheets if this is a new transaction
+                    if customer:
+                        customer_sheets_data = {
+                            'name': customer.name,
+                            'email': customer.email or '',
+                            'phone': customer.phone or '',
+                            'gst_number': customer.gst_number or '',
+                            'address': customer.address or '',
+                            'total_receivable': float(str(customer.total_receivable or '0')),
+                            'total_received': float(str(customer.total_received or '0')),
+                            'outstanding_balance': float(str(customer.outstanding_balance or '0'))
+                        }
+                        self.sheets_service.add_customer(customer_sheets_data)
+                    elif vendor:
+                        vendor_sheets_data = {
+                            'name': vendor.name,
+                            'email': vendor.email or '',
+                            'phone': vendor.phone or '',
+                            'gst_number': vendor.gst_number or '',
+                            'address': vendor.address or '',
+                            'total_payable': float(str(vendor.total_payable or '0')),
+                            'total_paid': float(str(vendor.total_paid or '0')),
+                            'outstanding_balance': float(str(vendor.outstanding_balance or '0'))
+                        }
+                        self.sheets_service.add_vendor(vendor_sheets_data)
+                        
+                except Exception as e:
+                    sheets_error = str(e)
+                    logging.error(f"Google Sheets sync failed: {sheets_error}")
+            
+            # Add sync status to response
             if sheets_success:
-                ai_response += "\nSaved to database and Google Sheets."
+                ai_response += "\n\n📊 Data synced with Google Sheets."
             elif sheets_error:
-                ai_response += f"\nNote: Google Sheets sync failed ({sheets_error})"
+                ai_response += f"\n\n⚠️ Note: Google Sheets sync failed ({sheets_error})"
             else:
-                ai_response += "\nSaved to local database."
+                ai_response += "\n\n💾 Data saved locally (Google Sheets not configured)."
                 
         return ai_response
 
@@ -348,7 +427,7 @@ class MessageView(APIView):
             customer = existing_customer
             operation = "updated"
         else:
-            # Create new customer
+            # Create new customer using the updated Customer model
             customer = Customer.objects.create(user=user, **customer_data)
             operation = "created"
 
@@ -357,19 +436,58 @@ class MessageView(APIView):
         sheets_error = None
         if self.sheets_enabled:
             try:
-                sheets_success = self.sheets_service.add_customer(customer_data)
+                # Include financial data for Google Sheets
+                sheets_data = {
+                    'name': customer.name,
+                    'email': customer.email or '',
+                    'phone': customer.phone or '',
+                    'gst_number': customer.gst_number or '',
+                    'address': customer.address or '',
+                    'total_receivable': float(customer.total_receivable or 0),
+                    'total_received': float(customer.total_received or 0),
+                    'outstanding_balance': float(customer.outstanding_balance or 0),
+                    'created_at': customer.created_at.strftime('%Y-%m-%d %H:%M:%S') if customer.created_at else ''
+                }
+                sheets_success = self.sheets_service.add_customer(sheets_data)
             except Exception as e:
                 sheets_error = str(e)
                 logging.error(f"Google Sheets sync failed: {sheets_error}")
+                
+        # Update AI response with financial summary if this is an update
+        if operation == "updated":
+            ai_response += f"\n\n💵 Financial Summary for {customer.name}:"
+            ai_response += f"\n• Total Receivable: ₹{customer.total_receivable:,.2f}"
+            ai_response += f"\n• Total Received: ₹{customer.total_received:,.2f}"
+            ai_response += f"\n• Outstanding Balance: ₹{customer.outstanding_balance:,.2f}"
 
-        # Update AI response
-        ai_response += f"\n\n✅ Customer {operation} successfully!\n"
+        # Update AI response with operation result
+        ai_response = f"✅ Customer '{customer.name}' {operation} successfully!\n"
+        
+        # Add customer details
+        ai_response += f"\n📝 Customer Details:"
+        if customer.email:
+            ai_response += f"\n• Email: {customer.email}"
+        if customer.phone:
+            ai_response += f"\n• Phone: {customer.phone}"
+        if customer.gst_number:
+            ai_response += f"\n• GST: {customer.gst_number}"
+            
+        # Add financial summary
+        ai_response += f"\n\n💳 Financial Summary:"
+        ai_response += f"\n• Total Receivable: ₹{customer.total_receivable:,.2f}"
+        ai_response += f"\n• Total Received: ₹{customer.total_received:,.2f}"
+        ai_response += f"\n• Outstanding Balance: ₹{customer.outstanding_balance:,.2f}"
+        
+        # Add sync status
         if sheets_success:
-            ai_response += "\nSaved to database and Google Sheets."
+            ai_response += "\n\n📊 Data synced with Google Sheets."
         elif sheets_error:
-            ai_response += f"\nNote: Google Sheets sync failed ({sheets_error})"
+            ai_response += f"\n\n⚠️ Note: Google Sheets sync failed ({sheets_error})"
         else:
-            ai_response += "\nSaved to local database."
+            ai_response += "\n\n💾 Data saved locally (Google Sheets not configured)."
+            
+        # Add helpful next steps
+        ai_response += "\n\n💡 You can now record transactions for this customer or view their transaction history."
             
         return ai_response
 
@@ -400,7 +518,7 @@ class MessageView(APIView):
             vendor = existing_vendor
             operation = "updated"
         else:
-            # Create new vendor
+            # Create new vendor using the updated Vendor model
             vendor = Vendor.objects.create(user=user, **vendor_data)
             operation = "created"
 
@@ -409,19 +527,58 @@ class MessageView(APIView):
         sheets_error = None
         if self.sheets_enabled:
             try:
-                sheets_success = self.sheets_service.add_vendor(vendor_data)
+                # Include financial data for Google Sheets
+                sheets_data = {
+                    'name': vendor.name,
+                    'email': vendor.email or '',
+                    'phone': vendor.phone or '',
+                    'gst_number': vendor.gst_number or '',
+                    'address': vendor.address or '',
+                    'total_payable': float(vendor.total_payable or 0),
+                    'total_paid': float(vendor.total_paid or 0),
+                    'outstanding_balance': float(vendor.outstanding_balance or 0),
+                    'created_at': vendor.created_at.strftime('%Y-%m-%d %H:%M:%S') if vendor.created_at else ''
+                }
+                sheets_success = self.sheets_service.add_vendor(sheets_data)
             except Exception as e:
                 sheets_error = str(e)
                 logging.error(f"Google Sheets sync failed: {sheets_error}")
+                
+        # Update AI response with financial summary if this is an update
+        if operation == "updated":
+            ai_response += f"\n\n💵 Financial Summary for {vendor.name}:"
+            ai_response += f"\n• Total Payable: ₹{vendor.total_payable:,.2f}"
+            ai_response += f"\n• Total Paid: ₹{vendor.total_paid:,.2f}"
+            ai_response += f"\n• Outstanding Balance: ₹{vendor.outstanding_balance:,.2f}"
 
-        # Update AI response
-        ai_response += f"\n\n✅ Vendor {operation} successfully!\n"
+        # Update AI response with operation result
+        ai_response = f"✅ Vendor '{vendor.name}' {operation} successfully!\n"
+        
+        # Add vendor details
+        ai_response += f"\n📝 Vendor Details:"
+        if vendor.email:
+            ai_response += f"\n• Email: {vendor.email}"
+        if vendor.phone:
+            ai_response += f"\n• Phone: {vendor.phone}"
+        if vendor.gst_number:
+            ai_response += f"\n• GST: {vendor.gst_number}"
+            
+        # Add financial summary
+        ai_response += f"\n\n💳 Financial Summary:"
+        ai_response += f"\n• Total Payable: ₹{vendor.total_payable:,.2f}"
+        ai_response += f"\n• Total Paid: ₹{vendor.total_paid:,.2f}"
+        ai_response += f"\n• Outstanding Balance: ₹{vendor.outstanding_balance:,.2f}"
+        
+        # Add sync status
         if sheets_success:
-            ai_response += "\nSaved to database and Google Sheets."
+            ai_response += "\n\n📊 Data synced with Google Sheets."
         elif sheets_error:
-            ai_response += f"\nNote: Google Sheets sync failed ({sheets_error})"
+            ai_response += f"\n\n⚠️ Note: Google Sheets sync failed ({sheets_error})"
         else:
-            ai_response += "\nSaved to local database."
+            ai_response += "\n\n💾 Data saved locally (Google Sheets not configured)."
+            
+        # Add helpful next steps
+        ai_response += "\n\n💡 You can now record expenses for this vendor or view their transaction history."
             
         return ai_response
 
@@ -508,7 +665,7 @@ class MessageView(APIView):
     def _parse_amount(self, amount_str):
         """Helper method to parse amount strings"""
         if not amount_str or str(amount_str).strip().upper() == '[OPTIONAL]':
-            return 0.0
+            return Decimal('0.00')
         
         # Handle string representation of numbers
         if isinstance(amount_str, str):
@@ -517,13 +674,14 @@ class MessageView(APIView):
             
             # If empty after cleaning, return 0
             if not amount_str:
-                return 0.0
+                return Decimal('0.00')
                 
         try:
-            return float(amount_str)
-        except (ValueError, TypeError):
-            logging.warning(f"Could not convert amount '{amount_str}' to float, using 0")
-            return 0.0
+            # Convert to Decimal with 2 decimal places for currency
+            return Decimal(amount_str).quantize(Decimal('0.00'))
+        except (ValueError, TypeError, InvalidOperation):
+            logging.warning(f"Could not convert amount '{amount_str}' to decimal, using 0")
+            return Decimal('0.00')
 
 
 class CustomerView(APIView):
