@@ -1,167 +1,891 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>{{ title }}</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background-color: #f8f9fc;
-    }
-    h1 {
-      color: #4e73df;
-    }
-    .card {
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 20px;
-    }
-    .section {
-      margin-top: 40px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      margin-top: 10px;
-    }
-    th, td {
-      border: 1px solid #dee2e6;
-      padding: 8px 12px;
-      text-align: left;
-    }
-    th {
-      background-color: #e9ecef;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccountAssist - Financial Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4e73df;
+            --success: #1cc88a;
+            --info: #36b9cc;
+            --warning: #f6c23e;
+            --danger: #e74a3b;
+            --dark: #5a5c69;
+            --light: #f8f9fc;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Top Navbar */
+        .top-navbar {
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1040;
+            height: 60px;
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            color: #2c3e50 !important;
+            font-size: 1.5rem;
+        }
+        
+        .navbar .nav-link {
+            color: #2c3e50 !important;
+            font-weight: 500;
+        }
+        
+        .navbar .nav-link:hover {
+            color: #3498db !important;
+        }
+        
+        /* Main Layout */
+        .main-wrapper {
+            margin-top: 60px;
+            display: flex;
+            min-height: calc(100vh - 60px);
+        }
+        
+        /* Side Navigation */
+        .side-navbar {
+            width: 260px;
+            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            position: fixed;
+            left: 0;
+            top: 60px;
+            bottom: 0;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            z-index: 1030;
+        }
+        
+        .side-navbar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .user-profile {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .user-avatar i {
+            color: #bdc3c7;
+            margin-bottom: 0.5rem;
+        }
+        
+        .user-profile h6 {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .user-profile .text-muted {
+            color: #95a5a6 !important;
+            font-size: 0.875rem;
+        }
+        
+        .nav-menu {
+            padding: 0 1rem;
+        }
+        
+        .nav-menu .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.25rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+        
+        .nav-menu .nav-link:hover,
+        .nav-menu .nav-item.active .nav-link {
+            color: #ffffff;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .nav-menu .nav-link i {
+            width: 20px;
+            margin-right: 0.75rem;
+        }
+        
+        /* Content Area */
+        .content-wrapper {
+            margin-left: 260px;
+            flex: 1;
+            padding: 1.5rem;
+            background-color: #f8f9fa;
+        }
+        
+        /* Cards */
+        .card {
+            border: none;
+            border-radius: 0.35rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+            margin-bottom: 1.5rem;
+        }
+        
+        .card-header {
+            background-color: #f8f9fc;
+            border-bottom: 1px solid #e3e6f0;
+            padding: 1rem 1.35rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        /* Charts */
+        .chart-area {
+            position: relative;
+            height: 20rem;
+            width: 100%;
+        }
+        
+        .chart-pie {
+            position: relative;
+            height: 20rem;
+            width: 100%;
+        }
+        
+        /* Tables */
+        .table {
+            color: #5a5c69;
+        }
+        
+        .table th {
+            border-top: none;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            color: var(--dark);
+        }
+        
+        /* Badges */
+        .badge {
+            font-weight: 500;
+            padding: 0.35em 0.65em;
+            font-size: 0.75em;
+        }
+        
+        .badge-income {
+            background-color: rgba(28, 200, 138, 0.1);
+            color: var(--success);
+        }
+        
+        .badge-expense {
+            background-color: rgba(231, 74, 59, 0.1);
+            color: var(--danger);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .side-navbar {
+                transform: translateX(-260px);
+            }
+            
+            .content-wrapper {
+                margin-left: 0;
+            }
+            
+            .side-navbar.active {
+                transform: translateX(0);
+            }
+            
+            .mobile-toggle {
+                display: inline-block;
+                position: fixed;
+                top: 70px;
+                left: 1rem;
+                z-index: 1035;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            }
+        }
+    </style>
 </head>
 <body>
+    <!-- Top Navbar -->
+    <nav class="navbar navbar-expand-lg top-navbar">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-calculator me-2" style="color: #3498db;"></i>
+                AccountAssist
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="me-3 text-muted">Welcome, <strong>{{ user.username }}</strong></span>
+                <a href="/logout/" class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-sign-out-alt me-1"></i>
+                    Logout
+                </a>
+            </div>
+        </div>
+    </nav>
 
-  <h1>{{ title }}</h1>
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-toggle" id="mobileToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+                        <i class="fas fa-user-circle me-1"></i>
+                        <span class="d-none d-lg-inline">{{ user.username }}</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-user fa-sm me-2"></i> Profile</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-cogs fa-sm me-2"></i> Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/logout/"><i class="fas fa-sign-out-alt fa-sm me-2"></i> Logout</a></li>
+                    </ul>
 
-  <div class="grid">
-    <div class="card">
-      <h3>Total Income</h3>
-      <p>₹ {{ summary.total_income|floatformat:2 }}</p>
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+        <!-- Side Navigation -->
+        <div class="side-navbar" id="sideNavbar">
+            <div class="side-navbar-header">
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user-circle fa-3x"></i>
+                    </div>
+                    <h6>{{ user.username }}</h6>
+                    <p class="text-muted small">{{ user.email }}</p>
+                </div>
+
+                <ul class="nav-menu list-unstyled">
+                    <li class="nav-item">
+                        <a href="/" class="nav-link">
+                            <i class="fas fa-comments"></i>
+                            <span>Chat</span>
+                        </a>
+                    </li>
+                    <li class="nav-item active">
+                        <a href="/analytics/" class="nav-link">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>Analytics</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-history"></i>
+                            <span>Chat History</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-folder"></i>
+                            <span>Documents</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-cog"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Content Wrapper -->
+        <div class="content-wrapper">
+            <!-- Page Heading -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0 text-gray-800">Financial Analytics</h1>
+                <div class="dropdown">
+                    <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-calendar me-1"></i>
+                        Last 12 Months
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#">Last 30 Days</a></li>
+                        <li><a class="dropdown-item" href="#">Last 3 Months</a></li>
+                        <li><a class="dropdown-item" href="#">Last 6 Months</a></li>
+                        <li><a class="dropdown-item" href="#">Last Year</a></li>
+                        <li><a class="dropdown-item" href="#">Custom Range</a></li>
+                    </ul>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row">
+            <!-- Income Card -->
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-success shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                    Total Income</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">₹ {{ summary.total_income|floatformat:2 }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-rupee-sign fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expenses Card -->
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-danger shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                    Total Expenses</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">₹ {{ summary.total_expenses|floatformat:2 }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-wallet fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Balance Card -->
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                    Net Balance</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">₹ {{ summary.net_balance|floatformat:2 }}</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-balance-scale fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Savings Rate Card -->
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-info shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                    Savings Rate</div>
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col-auto">
+                                        <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">{{ summary.savings_rate }}%</div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="progress progress-sm mr-2">
+                                            <div class="progress-bar bg-info" role="progressbar" 
+                                                 style="width: {{ summary.savings_rate }}%" 
+                                                 aria-valuenow="{{ summary.savings_rate }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-piggy-bank fa-2x text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row">
+            <!-- Income vs Expenses Chart -->
+            <div class="col-xl-8 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">Income vs Expenses Trend</h6>
+                        <div class="dropdown no-arrow">
+                            <a class="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#">Export as PNG</a></li>
+                                <li><a class="dropdown-item" href="#">Export as PDF</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#">View Full Report</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-area">
+                            <canvas id="incomeExpensesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expense Breakdown Chart -->
+            <div class="col-xl-4 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">Expense Breakdown</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-pie">
+                            <canvas id="expensePieChart"></canvas>
+                        </div>
+                        <div class="mt-4 text-center small">
+                            {% for cat in categories %}
+                            <span class="me-2">
+                                <i class="fas fa-circle" style="color: {{ cat.color }}"></i> {{ cat.name }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Recent Transactions</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Description</th>
+                                        <th>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for tx in recent_transactions %}
+                                    <tr>
+                                        <td>{{ tx.date|date:"M d" }}</td>
+                                        <td>{{ tx.description|truncatechars:25 }}</td>
+                                        <td class="text-{{ tx.transaction_type|yesno:'success,danger' }} fw-bold">
+                                            ₹ {{ tx.amount|floatformat:2 }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <a href="#" class="btn btn-block btn-light mt-2">View All Transactions</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Customers -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Top Customers</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Customer</th>
+                                        <th>Outstanding</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for c in customer_data %}
+                                    <tr>
+                                        <td>{{ c.name|truncatechars:20 }}</td>
+                                        <td>₹ {{ c.outstanding_balance|floatformat:2 }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ c.is_overdue|yesno:'danger,success' }}">
+                                                {{ c.is_overdue|yesno:"Overdue,Current" }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <a href="#" class="btn btn-block btn-light mt-2">View All Customers</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vendors and Cash Flow -->
+        <div class="row">
+            <!-- Vendor Payments -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Vendor Payments</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Vendor</th>
+                                        <th>Outstanding</th>
+                                        <th>Due Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for v in vendor_data %}
+                                    <tr>
+                                        <td>{{ v.name|truncatechars:20 }}</td>
+                                        <td>₹ {{ v.outstanding_balance|floatformat:2 }}</td>
+                                        <td class="{{ v.is_overdue|yesno:'text-danger,text-muted' }}">
+                                            {{ v.due_date|date:"M d" }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <a href="#" class="btn btn-block btn-light mt-2">View All Vendors</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cash Flow Forecast -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Cash Flow Forecast</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-area">
+                            <canvas id="cashFlowChart"></canvas>
+                        </div>
+                        <div class="mt-3 small text-center">
+                            <span class="me-3"><i class="fas fa-circle text-primary"></i> Expected Income</span>
+                            <span class="me-3"><i class="fas fa-circle text-danger"></i> Expected Expenses</span>
+                            <span><i class="fas fa-circle text-success"></i> Projected Balance</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
     </div>
-    <div class="card">
-      <h3>Total Expenses</h3>
-      <p>₹ {{ summary.total_expenses|floatformat:2 }}</p>
-    </div>
-    <div class="card">
-      <h3>Net Balance</h3>
-      <p>₹ {{ summary.net_balance|floatformat:2 }}</p>
-    </div>
-    <div class="card">
-      <h3>Savings Rate</h3>
-      <p>{{ summary.savings_rate }}%</p>
-    </div>
-  </div>
 
-  <div class="section">
-    <h2>Monthly Income & Expenses</h2>
-    <table>
-      <tr>
-        <th>Month</th>
-        <th>Income</th>
-        <th>Expenses</th>
-      </tr>
-      {% for m in monthly_data %}
-      <tr>
-        <td>{{ m.month }}</td>
-        <td>₹ {{ m.income|floatformat:2 }}</td>
-        <td>₹ {{ m.expenses|floatformat:2 }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sideNavbar = document.getElementById('sideNavbar');
+            const mobileToggle = document.getElementById('mobileToggle');
 
-  <div class="section">
-    <h2>Category Breakdown</h2>
-    <table>
-      <tr>
-        <th>Category</th>
-        <th>Amount</th>
-      </tr>
-      {% for cat in categories %}
-      <tr>
-        <td>{{ cat.name }}</td>
-        <td>₹ {{ cat.amount|floatformat:2 }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+            // Mobile menu toggle
+            if (mobileToggle) {
+                mobileToggle.addEventListener('click', function() {
+                    sideNavbar.classList.toggle('active');
+                });
+            }
 
-  <div class="section">
-    <h2>Recent Transactions</h2>
-    <table>
-      <tr>
-        <th>Date</th>
-        <th>Description</th>
-        <th>Category</th>
-        <th>Amount</th>
-        <th>Type</th>
-      </tr>
-      {% for tx in recent_transactions %}
-      <tr>
-        <td>{{ tx.date }}</td>
-        <td>{{ tx.description }}</td>
-        <td>{{ tx.category }}</td>
-        <td>₹ {{ tx.amount|floatformat:2 }}</td>
-        <td>{{ tx.transaction_type }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', function(event) {
+                if (window.innerWidth <= 768) {
+                    const isClickInsideNavbar = sideNavbar.contains(event.target);
+                    const isClickOnToggle = mobileToggle.contains(event.target);
+                    
+                    if (!isClickInsideNavbar && !isClickOnToggle && sideNavbar.classList.contains('active')) {
+                        sideNavbar.classList.remove('active');
+                    }
+                }
+            });
+        });
 
-  <div class="section">
-    <h2>Customers</h2>
-    <table>
-      <tr>
-        <th>Name</th>
-        <th>Total Receivable</th>
-        <th>Total Received</th>
-        <th>Outstanding</th>
-        <th>Overdue?</th>
-      </tr>
-      {% for c in customer_data %}
-      <tr>
-        <td>{{ c.name }}</td>
-        <td>₹ {{ c.total_receivable|floatformat:2 }}</td>
-        <td>₹ {{ c.total_received|floatformat:2 }}</td>
-        <td>₹ {{ c.outstanding_balance|floatformat:2 }}</td>
-        <td>{{ c.is_overdue }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+        // Income vs Expenses Line Chart
+        const incomeExpensesCtx = document.getElementById('incomeExpensesChart').getContext('2d');
+        new Chart(incomeExpensesCtx, {
+            type: 'line',
+            data: {
+              labels: [{% for m in monthly_data %}"{{ m.month|date:'M Y' }}",{% endfor %}],
+                datasets: [
+                    {
+                        label: "Income",
+                        lineTension: 0.3,
+                        backgroundColor: "rgba(78, 115, 223, 0.05)",
+                        borderColor: "rgba(78, 115, 223, 1)",
+                        pointRadius: 3,
+                        pointBackgroundColor: "rgba(78, 115, 223, 1)",
+                        pointBorderColor: "rgba(78, 115, 223, 1)",
+                        pointHoverRadius: 3,
+                        pointHoverBackgroundColor: "rgba(78, 115, 223, 1)",
+                        pointHoverBorderColor: "rgba(78, 115, 223, 1)",
+                        pointHitRadius: 10,
+                        pointBorderWidth: 2,
+                        data: [{% for m in monthly_data %}{{ m.income|default:0 }},{% endfor %}],
+                    },
+                    {
+                        label: "Expenses",
+                        lineTension: 0.3,
+                        backgroundColor: "rgba(231, 74, 59, 0.05)",
+                        borderColor: "rgba(231, 74, 59, 1)",
+                        pointRadius: 3,
+                        pointBackgroundColor: "rgba(231, 74, 59, 1)",
+                        pointBorderColor: "rgba(231, 74, 59, 1)",
+                        pointHoverRadius: 3,
+                        pointHoverBackgroundColor: "rgba(231, 74, 59, 1)",
+                        pointHoverBorderColor: "rgba(231, 74, 59, 1)",
+                        pointHitRadius: 10,
+                        pointBorderWidth: 2,
+                        data: [{% for m in monthly_data %}{{ m.expenses|default:0 }},{% endfor %}],
+                    }
+                ],
+            },
+            options: {
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 10,
+                        right: 25,
+                        top: 25,
+                        bottom: 0
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            maxTicksLimit: 7
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            maxTicksLimit: 5,
+                            padding: 10,
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        },
+                        grid: {
+                            color: "rgb(234, 236, 244)",
+                            zeroLineColor: "rgb(234, 236, 244)",
+                            drawBorder: false,
+                            borderDash: [2],
+                            zeroLineBorderDash: [2]
+                        }
+                    },
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: "rgb(255,255,255)",
+                        bodyColor: "#858796",
+                        titleMarginBottom: 10,
+                        titleColor: '#6e707e',
+                        titleFontSize: 14,
+                        borderColor: '#dddfeb',
+                        borderWidth: 1,
+                        xPadding: 15,
+                        yPadding: 15,
+                        displayColors: true,
+                        intersect: false,
+                        mode: 'index',
+                        caretPadding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                var label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += '₹' + context.parsed.y.toLocaleString();
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
 
-  <div class="section">
-    <h2>Vendors</h2>
-    <table>
-      <tr>
-        <th>Name</th>
-        <th>Total Payable</th>
-        <th>Total Paid</th>
-        <th>Outstanding</th>
-      </tr>
-      {% for v in vendor_data %}
-      <tr>
-        <td>{{ v.name }}</td>
-        <td>₹ {{ v.total_payable|floatformat:2 }}</td>
-        <td>₹ {{ v.total_paid|floatformat:2 }}</td>
-        <td>₹ {{ v.outstanding_balance|floatformat:2 }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+        // Expense Breakdown Pie Chart
+        const expensePieCtx = document.getElementById('expensePieChart').getContext('2d');
+        new Chart(expensePieCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [{% for cat in categories %}"{{ cat.name }}",{% endfor %}],
+                datasets: [{
+                    data: [{% for cat in categories %}{{ cat.amount|default:0 }},{% endfor %}],
+                    backgroundColor: [{% for cat in categories %}"{{ cat.color|default:'#4e73df' }}",{% endfor %}],
+                    hoverBackgroundColor: [{% for cat in categories %}"{{ cat.hover_color|default:'#2e59d9' }}",{% endfor %}],
+                    hoverBorderColor: "rgba(234, 236, 244, 1)",
+                }],
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        backgroundColor: "rgb(255,255,255)",
+                        bodyColor: "#858796",
+                        borderColor: '#dddfeb',
+                        borderWidth: 1,
+                        xPadding: 15,
+                        yPadding: 15,
+                        displayColors: false,
+                        caretPadding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                var label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.raw !== null) {
+                                    label += '₹' + context.raw.toLocaleString();
+                                }
+                                return label;
+                            }
+                        }
+                    },
+                    legend: {
+                        display: false
+                    },
+                },
+                cutout: '70%',
+            },
+        });
 
+        // Cash Flow Forecast Chart
+        const cashFlowCtx = document.getElementById('cashFlowChart').getContext('2d');
+        new Chart(cashFlowCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Current', 'Next Month', '2 Months', '3 Months'],
+                datasets: [
+                    {
+                        label: "Expected Income",
+                        backgroundColor: "#4e73df",
+                        hoverBackgroundColor: "#2e59d9",
+                        borderColor: "#4e73df",
+                        data: [25000, 28000, 30000, 32000],
+                    },
+                    {
+                        label: "Expected Expenses",
+                        backgroundColor: "#e74a3b",
+                        hoverBackgroundColor: "#e02d1b",
+                        borderColor: "#e74a3b",
+                        data: [18000, 20000, 22000, 24000],
+                    },
+                    {
+                        label: "Projected Balance",
+                        backgroundColor: "#1cc88a",
+                        hoverBackgroundColor: "#17a673",
+                        borderColor: "#1cc88a",
+                        data: [7000, 8000, 8000, 8000],
+                        type: 'line',
+                        tension: 0.3,
+                        fill: false
+                    }
+                ],
+            },
+            options: {
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 10,
+                        right: 25,
+                        top: 25,
+                        bottom: 0
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        },
+                        grid: {
+                            color: "rgb(234, 236, 244)",
+                            zeroLineColor: "rgb(234, 236, 244)",
+                            drawBorder: false,
+                            borderDash: [2],
+                            zeroLineBorderDash: [2]
+                        }
+                    },
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: "rgb(255,255,255)",
+                        bodyColor: "#858796",
+                        titleMarginBottom: 10,
+                        titleColor: '#6e707e',
+                        titleFontSize: 14,
+                        borderColor: '#dddfeb',
+                        borderWidth: 1,
+                        xPadding: 15,
+                        yPadding: 15,
+                        displayColors: true,
+                        intersect: false,
+                        mode: 'index',
+                        caretPadding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                var label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += '₹' + context.parsed.y.toLocaleString();
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 </html>

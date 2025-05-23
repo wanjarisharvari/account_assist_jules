@@ -1,324 +1,569 @@
-{% extends "base.html" %}
-{% load static %}
-
-{% block content %}
-<div class="d-flex" id="dashboard-wrapper">
-    <div class="side-navbar bg-dark text-white shadow-lg" id="sideNavbar">
-        <div class="side-navbar-header p-3 border-bottom border-secondary d-flex align-items-center">
-            {# REMOVED explicit "Counto AI" name, assuming base.html navbar is visible #}
-            {# You can keep an icon or a generic title like "Menu" or "Dashboard" #}
-            <i class="fas fa-th-large fa-lg me-2" style="color: #3498db;"></i> <h4 class="mb-0 ms-2">Menu</h4>
-        </div>
-
-        <div class="p-3">
-            <div class="user-profile mb-4 text-center">
-                <div class="user-avatar mb-2 mx-auto">
-                    <i class="fas fa-user-circle fa-3x" style="color: #adb5bd;"></i>
-                </div>
-                <h6 class="mb-1" style="font-weight: 600;">{{ user.username }}</h6>
-                <p class="text-muted small mb-0">{{ user.email }}</p>
-            </div>
-
-            <ul class="nav-menu list-unstyled mb-0">
-                <li class="nav-item active">
-                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
-                        <i class="fas fa-comments fa-fw me-3"></i>
-                        <span>Chat</span>
-                    </a>
-                </li>
-
-                <li class="nav-item">
-                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
-                        <i class="fas fa-history fa-fw me-3"></i>
-                        <span>Chat History</span>
-                    </a>
-                </li>
-
-                <li class="nav-item">
-                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
-                        <i class="fas fa-folder fa-fw me-3"></i>
-                        <span>Document Store</span>
-                    </a>
-                </li>
-
-                <li class="nav-item">
-                    <a href="{% url 'analytics' %}" class="nav-link d-flex align-items-center p-3 rounded mb-2">
-                        <i class="fas fa-chart-bar fa-fw me-3"></i>
-                        <span>Analytics</span>
-                    </a>
-                </li>
-
-                {# Pushing Settings to the bottom - Logout is now handled by base.html navbar #}
-                <li class="nav-item mt-auto pt-3 border-top border-secondary">
-                    <a href="#" class="nav-link d-flex align-items-center p-3 rounded mb-2">
-                        <i class="fas fa-cog fa-fw me-3"></i>
-                        <span>Settings</span>
-                    </a>
-                </li>
-                {# REMOVED LOGOUT LINK FROM HERE - IT'S IN base.html #}
-            </ul>
-        </div>
-    </div>
-
-    <div class="content-wrapper flex-grow-1 p-0" style="overflow: hidden;">
-        <section class="main-content h-100 d-flex flex-column" style="height: 100vh;">
-            <div class="container-fluid h-100 d-flex flex-column" style="padding: 1rem;">
-                <button id="sidebarToggleBtn" class="btn btn-outline-primary btn-sm mb-3 d-md-none">
-                    <i class="fas fa-bars"></i> Menu
-                </button>
-
-                <div class="row flex-grow-1" style="margin: 0; height: calc(100% - 3rem);">
-                    <div class="col-12 h-100 p-0 d-flex flex-column" style="overflow: hidden;">
-                        <div class="card shadow-sm border-0 h-100 d-flex flex-column" style="width: 100%; max-width: 1200px; margin: 0 auto; border-radius: 0.5rem; overflow: hidden;">
-                            <div class="card-header bg-light text-dark d-flex justify-content-between align-items-center py-3 border-bottom" style="flex-shrink: 0;">
-                                <h4 class="mb-0 font-weight-bold d-flex align-items-center">
-                                    <i class="fas fa-robot me-2 text-primary"></i> Financial Assistant
-                                </h4>
-                            </div>
-                            <div id="conversation" class="card-body p-0" style="flex: 1 1 auto; overflow-y: auto; background-color: #ffffff;">
-                                <div class="p-4">
-                                    <!-- Messages will be inserted here -->
-                                </div>
-                            </div>
-                            <div class="card-footer bg-white p-3 border-top" style="flex-shrink: 0;">
-                                <form id="messageForm" class="mt-auto">
-                                    <div class="input-group">
-                                        <textarea class="form-control border-end-0" id="messageInput" placeholder="How can I help with your finances today?" rows="1" style="resize: none; border-radius: 0.375rem 0 0 0.375rem;"></textarea>
-                                        <button type="submit" class="btn btn-primary send-btn" style="border-radius: 0 0.375rem 0.375rem 0;">
-                                            <i class="fas fa-paper-plane me-1"></i>
-                                            <span>Send</span>
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </div>
-</div>
-
-<script>
-// Your existing JavaScript for dashboard.html (as provided previously)
-// Ensure the CSS styles for the sidebar and chat are either in a linked static file
-// or the <style> block within the script tag as you had, adjusting for the removal of logout.
-document.addEventListener('DOMContentLoaded', function() {
-    const messageForm = document.getElementById('messageForm');
-    const messageInput = document.getElementById('messageInput');
-    const conversation = document.getElementById('conversation');
-    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
-    const sideNavbar = document.getElementById('sideNavbar');
-    const dashboardWrapper = document.getElementById('dashboard-wrapper');
-
-    let conversationId = null;
-
-    sidebarToggleBtn.addEventListener('click', function() {
-        sideNavbar.classList.toggle('active');
-        dashboardWrapper.classList.toggle('sidebar-active-mobile');
-    });
-
-    document.addEventListener('click', function(event) {
-        const isClickInsideNavbar = sideNavbar.contains(event.target);
-        const isClickOnToggleBtn = sidebarToggleBtn.contains(event.target);
-        if (!isClickInsideNavbar && !isClickOnToggleBtn && window.innerWidth < 768 && sideNavbar.classList.contains('active')) {
-            sideNavbar.classList.remove('active');
-            dashboardWrapper.classList.remove('sidebar-active-mobile');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccountAssist - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
         }
-    });
-
-    messageInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        const maxHeight = 120;
-        this.style.height = Math.min(this.scrollHeight, maxHeight) + 'px';
-    });
-
-    function addMessage(content, sender, isHtml = false) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'mb-3 d-flex ' + (sender === 'USER' ? 'justify-content-end' : 'justify-content-start');
-        const messageBubble = document.createElement('div');
-        messageBubble.style.maxWidth = '75%';
-        messageBubble.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-        if (sender === 'USER') {
-            messageBubble.className = 'message-bubble user-message p-3 rounded-3 bg-primary text-white';
-        } else {
-            messageBubble.className = 'message-bubble ai-message p-3 rounded-3 bg-light border';
+        
+        /* Top Navbar */
+        .top-navbar {
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1040;
+            height: 60px;
         }
-        if (isHtml) {
-            messageBubble.innerHTML = content;
-        } else {
-            messageBubble.textContent = content;
+        
+        .navbar-brand {
+            font-weight: 700;
+            color: #2c3e50 !important;
+            font-size: 1.5rem;
         }
-        messageDiv.appendChild(messageBubble);
-        conversation.appendChild(messageDiv);
-        conversation.scrollTop = conversation.scrollHeight;
-    }
-
-    async function sendMessage(message) {
-        const typingIndicatorId = 'typing-indicator-' + Date.now();
-        addMessage(`<div class="typing-dots"><span></span><span></span><span></span></div> Thinking...</div>`, 'AI_TYPING', true);
-        const typingIndicatorElement = conversation.lastElementChild;
-        if (typingIndicatorElement) typingIndicatorElement.id = typingIndicatorId;
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
+        
+        .navbar .nav-link {
+            color: #2c3e50 !important;
+            font-weight: 500;
         }
-        const csrftoken = getCookie('csrftoken');
-
-        try {
-            const response = await fetch('/api/messages/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrftoken,
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({
-                    content: message,
-                    conversation_id: conversationId
-                })
-            });
-            const indicatorToRemove = document.getElementById(typingIndicatorId);
-            if (indicatorToRemove) indicatorToRemove.remove();
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ detail: 'Failed to send message. Server error.' }));
-                throw new Error(errorData.detail || 'Failed to send message');
-            }
-            const data = await response.json();
-            conversationId = data.conversation_id;
-            addMessage(data.message, 'AI', data.is_html);
-            if (data.is_new_conversation) {
-                addConversationToHistory(data.conversation_id, message);
-            }
-            if (data.has_pending_transaction) {
-                addMessage("<em>Note: A pending transaction related to this action has been recorded.</em>", "AI_INFO", true);
-            }
-        } catch (error) {
-            const indicatorToRemove = document.getElementById(typingIndicatorId);
-            if (indicatorToRemove) indicatorToRemove.remove();
-            console.error('Error:', error);
-            addMessage('Sorry, there was an error processing your message: ' + error.message, 'AI_ERROR', true);
+        
+        .navbar .nav-link:hover {
+            color: #3498db !important;
         }
-    }
-
-    function addConversationToHistory(id, title) {
-        const shortTitle = title.split(' ').slice(0, 4).join(' ') + (title.split(' ').length > 4 ? '...' : '');
-        const chatHistorySubmenu = document.getElementById('chatHistorySubmenu');
-        if (!chatHistorySubmenu) return;
-        const viewAllItem = chatHistorySubmenu.querySelector('.view-all');
-        const newHistoryItem = document.createElement('li');
-        newHistoryItem.className = 'chat-history-item';
-        newHistoryItem.innerHTML = `
-            <a href="#" class="nav-link d-flex align-items-center p-2 rounded mb-1" data-conversation-id="${id}">
-                <i class="fas fa-comment-dots fa-fw me-2"></i>
-                <span>${shortTitle}</span>
-                <span class="badge bg-info-subtle text-info-emphasis rounded-pill ms-auto">new</span>
-            </a>`;
-        if (viewAllItem) {
-            chatHistorySubmenu.insertBefore(newHistoryItem, viewAllItem);
-        } else {
-            chatHistorySubmenu.appendChild(newHistoryItem);
+        
+        /* Main Layout */
+        .main-wrapper {
+            margin-top: 60px;
+            display: flex;
+            min-height: calc(100vh - 60px);
         }
-        if (!chatHistorySubmenu.classList.contains('show')) {
-            new bootstrap.Collapse(chatHistorySubmenu, { toggle: true });
-        }
-        newHistoryItem.querySelector('a').addEventListener('click', function(e) {
-            e.preventDefault();
-            addMessage(`Loading conversation: "${shortTitle}"... (Functionality to be implemented)`, 'SYSTEM');
-            conversationId = id;
-        });
-    }
-
-    messageForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const message = messageInput.value.trim();
-        if (message) {
-            addMessage(message, 'USER');
-            messageInput.value = '';
-            messageInput.style.height = 'auto';
-            messageInput.focus();
-            sendMessage(message);
-        }
-    });
-
-    messageInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            messageForm.dispatchEvent(new Event('submit', {'bubbles': true, 'cancelable': true}));
-        }
-    });
-
-    addMessage('Hello! I\'m your financial assistant. How can I help you today?', 'AI');
-
-    const style = document.createElement('style');
-    style.textContent = `
-        /* Your existing dashboard CSS from the previous response, ensure it's included */
-        /* Example: */
-        #dashboard-wrapper.sidebar-active-mobile > .content-wrapper {
-            filter: blur(2px) brightness(0.9);
-            pointer-events: none;
-        }
+        
+        /* Side Navigation */
         .side-navbar {
-            width: 260px; height: 100vh; position: sticky; top: 0;
-            transition: all 0.3s ease; background-color: #232e3c !important;
-            z-index: 1030; overflow-y: auto;
+            width: 260px;
+            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            position: fixed;
+            left: 0;
+            top: 60px;
+            bottom: 0;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            z-index: 1030;
         }
+        
         .side-navbar-header {
-            height: 60px; display: flex; align-items: center;
-            padding-left: 1.25rem; padding-right: 1.25rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        .user-profile .user-avatar i { color: #6c757d; }
+        
+        .user-profile {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .user-avatar i {
+            color: #bdc3c7;
+            margin-bottom: 0.5rem;
+        }
+        
+        .user-profile h6 {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .user-profile .text-muted {
+            color: #95a5a6 !important;
+            font-size: 0.875rem;
+        }
+        
+        .nav-menu {
+            padding: 0 1rem;
+        }
+        
         .nav-menu .nav-link {
-            color: rgba(255, 255, 255, 0.75); font-weight: 500;
-            transition: all 0.2s ease; letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.25rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
         }
+        
         .nav-menu .nav-link:hover,
         .nav-menu .nav-item.active .nav-link {
-            color: #ffffff; background-color: rgba(255, 255, 255, 0.1);
-            border-left: 3px solid #3498db; padding-left: calc(1.5rem - 3px);
+            color: #ffffff;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
         }
-        .nav-submenu .nav-link { color: rgba(255, 255, 255, 0.65); font-size: 0.875rem; }
-        .nav-submenu .nav-link:hover { color: #fff; background-color: rgba(255, 255, 255, 0.05); }
-        .nav-menu .nav-item.mt-auto { margin-top: auto !important; }
-        .content-wrapper { min-height: 100vh; background-color: #eef1f5; }
-        @media (max-width: 767.98px) {
-            .side-navbar { position: fixed; left: -260px; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
-            .side-navbar.active { left: 0; }
+        
+        .nav-menu .nav-link i {
+            width: 20px;
+            margin-right: 0.75rem;
         }
-        .message-bubble { animation: fadeIn 0.3s ease-out; word-wrap: break-word; }
-        .user-message { background-color: #0d6efd; color: white; border-radius: 1rem 1rem 0.25rem 1rem !important; }
-        .ai-message { background-color: #e9ecef; color: #212529; border: none; border-radius: 1rem 1rem 1rem 0.25rem !important; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .typing-dots { display: flex; align-items: center; font-style: italic; color: #6c757d; }
-        .typing-dots span { animation: typing 1.2s infinite ease-in-out; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #6c757d; margin: 0 2px; }
+        
+        /* Content Area */
+        .content-wrapper {
+            margin-left: 260px;
+            flex: 1;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        
+        .chat-container {
+            height: calc(100vh - 60px);
+            display: flex;
+            flex-direction: column;
+            background: white;
+            margin: 1rem;
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .chat-header h4 {
+            margin: 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+        
+        .chat-header i {
+            margin-right: 0.5rem;
+            font-size: 1.25rem;
+        }
+        
+        #conversation {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            background: #ffffff;
+        }
+        
+        .chat-footer {
+            padding: 1.5rem;
+            background: #ffffff;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .input-group textarea {
+            border-radius: 2rem;
+            border: 2px solid #e9ecef;
+            padding: 0.75rem 1.25rem;
+            resize: none;
+            transition: all 0.3s ease;
+        }
+        
+        .input-group textarea:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .send-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 2rem;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            font-weight: 600;
+            margin-left: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* Message Bubbles */
+        .message-bubble {
+            animation: fadeIn 0.4s ease-out;
+            word-wrap: break-word;
+            border-radius: 1.5rem;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            max-width: 70%;
+        }
+        
+        .user-message {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 0.5rem;
+        }
+        
+        .ai-message {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            color: #2c3e50;
+            border-bottom-left-radius: 0.5rem;
+            border: 1px solid #dee2e6;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Typing Animation */
+        .typing-dots {
+            display: flex;
+            align-items: center;
+            font-style: italic;
+            color: #6c757d;
+        }
+        
+        .typing-dots span {
+            animation: typing 1.4s infinite ease-in-out;
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            margin: 0 3px;
+        }
+        
         .typing-dots span:nth-child(1) { animation-delay: 0s; }
-        .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
-        .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
-        @keyframes typing { 0%, 80%, 100% { transform: scale(0.5); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
-        #conversation { scroll-behavior: smooth; }
-        #conversation::-webkit-scrollbar { width: 6px; }
-        #conversation::-webkit-scrollbar-track { background: transparent; }
-        #conversation::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 10px; }
-        #conversation::-webkit-scrollbar-thumb:hover { background: #adb5bd; }
-        #messageInput { border-radius: 0.375rem 0 0 0.375rem; transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
-        #messageInput:focus { border-color: #86b7fe; box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25); z-index: 10; }
-        .send-btn { border-radius: 0 0.375rem 0.375rem 0; z-index: 5; }
-        .send-btn i { transition: transform 0.2s ease-in-out; }
-        .send-btn:hover i { transform: translateX(2px) rotate(-15deg); }
-    `;
-    document.head.appendChild(style);
-});
-</script>
-{% endblock %}
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.5); opacity: 0.5; }
+            40% { transform: scale(1.2); opacity: 1; }
+        }
+        
+        /* Scrollbar */
+        #conversation::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #conversation::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        #conversation::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 10px;
+        }
+        
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .side-navbar {
+                left: -260px;
+                box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            }
+            
+            .side-navbar.active {
+                left: 0;
+            }
+            
+            .content-wrapper {
+                margin-left: 0;
+            }
+            
+            .chat-container {
+                margin: 0.5rem;
+                border-radius: 0.5rem;
+            }
+            
+            .message-bubble {
+                max-width: 85%;
+            }
+        }
+        
+        .mobile-toggle {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-toggle {
+                display: inline-block;
+                position: fixed;
+                top: 70px;
+                left: 1rem;
+                z-index: 1035;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Navbar -->
+    <nav class="navbar navbar-expand-lg top-navbar">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-calculator me-2" style="color: #3498db;"></i>
+                AccountAssist
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="me-3 text-muted">Welcome, <strong>{{ user.username }}</strong></span>
+                <a href="/logout/" class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-sign-out-alt me-1"></i>
+                    Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-toggle" id="mobileToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+        <!-- Side Navigation -->
+        <div class="side-navbar" id="sideNavbar">
+            <div class="side-navbar-header">
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <i class="fas fa-user-circle fa-3x"></i>
+                    </div>
+                    <h6>{{ user.username }}</h6>
+                    <p class="text-muted small">{{ user.email }}</p>
+                </div>
+
+                <ul class="nav-menu list-unstyled">
+                    <li class="nav-item active">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-comments"></i>
+                            <span>Chat</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/analytics/" class="nav-link">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>Analytics</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-history"></i>
+                            <span>Chat History</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-folder"></i>
+                            <span>Documents</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i class="fas fa-cog"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Content Wrapper -->
+        <div class="content-wrapper">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <h4>
+                        <i class="fas fa-robot"></i>
+                        Financial Assistant
+                    </h4>
+                    <div class="text-white-50">
+                        <i class="fas fa-circle text-success"></i>
+                        Online
+                    </div>
+                </div>
+                
+                <div id="conversation">
+                    <!-- Messages will be inserted here -->
+                </div>
+                
+                <div class="chat-footer">
+                    <form id="messageForm">
+                        <div class="input-group align-items-end">
+                            <textarea 
+                                class="form-control" 
+                                id="messageInput" 
+                                placeholder="Ask me about your finances, expenses, or any money-related questions..." 
+                                rows="1"
+                            ></textarea>
+                            <button type="submit" class="send-btn">
+                                <i class="fas fa-paper-plane"></i>
+                                Send
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageForm = document.getElementById('messageForm');
+            const messageInput = document.getElementById('messageInput');
+            const conversation = document.getElementById('conversation');
+            const sideNavbar = document.getElementById('sideNavbar');
+            const mobileToggle = document.getElementById('mobileToggle');
+
+            let conversationId = null;
+
+            // Mobile menu toggle
+            mobileToggle.addEventListener('click', function() {
+                sideNavbar.classList.toggle('active');
+            });
+
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', function(event) {
+                if (window.innerWidth <= 768) {
+                    const isClickInsideNavbar = sideNavbar.contains(event.target);
+                    const isClickOnToggle = mobileToggle.contains(event.target);
+                    
+                    if (!isClickInsideNavbar && !isClickOnToggle && sideNavbar.classList.contains('active')) {
+                        sideNavbar.classList.remove('active');
+                    }
+                }
+            });
+
+            // Auto-resize textarea
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                const maxHeight = 120;
+                this.style.height = Math.min(this.scrollHeight, maxHeight) + 'px';
+            });
+
+            function addMessage(content, sender, isHtml = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'd-flex ' + (sender === 'USER' ? 'justify-content-end' : 'justify-content-start');
+                
+                const messageBubble = document.createElement('div');
+                messageBubble.className = 'message-bubble ' + (sender === 'USER' ? 'user-message' : 'ai-message');
+                
+                if (isHtml) {
+                    messageBubble.innerHTML = content;
+                } else {
+                    messageBubble.textContent = content;
+                }
+                
+                messageDiv.appendChild(messageBubble);
+                conversation.appendChild(messageDiv);
+                conversation.scrollTop = conversation.scrollHeight;
+            }
+
+            async function sendMessage(message) {
+                // Add typing indicator
+                const typingId = 'typing-' + Date.now();
+                addMessage('<div class="typing-dots"><span></span><span></span><span></span></div> Thinking...', 'AI', true);
+                const typingElement = conversation.lastElementChild;
+                typingElement.id = typingId;
+
+                try {
+                    // Get CSRF token
+                    function getCookie(name) {
+                        let cookieValue = null;
+                        if (document.cookie && document.cookie !== '') {
+                            const cookies = document.cookie.split(';');
+                            for (let i = 0; i < cookies.length; i++) {
+                                const cookie = cookies[i].trim();
+                                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                    break;
+                                }
+                            }
+                        }
+                        return cookieValue;
+                    }
+                    
+                    const csrftoken = getCookie('csrftoken');
+
+                    const response = await fetch('/api/messages/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken,
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            content: message,
+                            conversation_id: conversationId
+                        })
+                    });
+
+                    // Remove typing indicator
+                    const typingToRemove = document.getElementById(typingId);
+                    if (typingToRemove) typingToRemove.remove();
+
+                    if (!response.ok) {
+                        throw new Error('Failed to send message');
+                    }
+
+                    const data = await response.json();
+                    conversationId = data.conversation_id;
+                    addMessage(data.message, 'AI', data.is_html);
+
+                } catch (error) {
+                    // Remove typing indicator
+                    const typingToRemove = document.getElementById(typingId);
+                    if (typingToRemove) typingToRemove.remove();
+                    
+                    console.error('Error:', error);
+                    addMessage('Sorry, there was an error processing your message. Please try again.', 'AI');
+                }
+            }
+
+            // Form submission
+            messageForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const message = messageInput.value.trim();
+                if (message) {
+                    addMessage(message, 'USER');
+                    messageInput.value = '';
+                    messageInput.style.height = 'auto';
+                    sendMessage(message);
+                }
+            });
+
+            // Enter key support
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    messageForm.dispatchEvent(new Event('submit'));
+                }
+            });
+
+            // Initial greeting
+            addMessage('Hello! I\'m your AI financial assistant. I can help you track expenses, analyze spending patterns, manage budgets, and answer any finance-related questions. How can I help you today?', 'AI');
+        });
+    </script>
+</body>
+</html>
