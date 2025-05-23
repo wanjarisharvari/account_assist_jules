@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     ConversationView, MessageView, home, login_view, logout_view, 
     register_view, dashboard, analytics, CustomerView, VendorView, TransactionView,
-    AnalyticsDataView
+    AnalyticsDataView, upload_document, financial_summary
 )
 
 urlpatterns = [
@@ -13,6 +13,8 @@ urlpatterns = [
     path('register/', register_view, name='register'),
     path('dashboard/', dashboard, name='dashboard'),
     path('analytics/', analytics, name='analytics'),
+    path('upload-document/', upload_document, name='upload'),
+    path('summary/', financial_summary, name='financial_summary'),
     
     # API routes
     path('conversations/', ConversationView.as_view(), name='conversations'),

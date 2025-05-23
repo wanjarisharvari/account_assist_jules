@@ -33,6 +33,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+PRIVATE_FILE_STORAGE = str(BASE_DIR / 'private_uploads')
 
 # Application definition
 
@@ -45,7 +46,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "counto_app",
-    
 ]
 
 MIDDLEWARE = [

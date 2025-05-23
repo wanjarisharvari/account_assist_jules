@@ -631,7 +631,7 @@
         new Chart(incomeExpensesCtx, {
             type: 'line',
             data: {
-              labels: [{% for m in monthly_data %}"{{ m.month|date:'M Y' }}",{% endfor %}],
+                labels: [{% for m in monthly_data %}"{{ m.month|date:'M Y' }}"{% if not forloop.last %}, {% endif %}{% endfor %}],
                 datasets: [
                     {
                         label: "Income",

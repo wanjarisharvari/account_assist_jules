@@ -413,14 +413,27 @@
                             <textarea 
                                 class="form-control" 
                                 id="messageInput" 
-                                placeholder="Ask me about your finances, expenses, or any money-related questions..." 
+                                placeholder="Ask me about your finances..." 
                                 rows="1"
                             ></textarea>
+                            
+                            <!-- Hidden file input -->
+                            <input type="file" id="fileInput" style="display: none;" accept=".pdf,.jpg,.png,.doc,.docx,.xls,.xlsx,.csv"/>
+
+                            <!-- Attach button -->
+                            <button type="button" class="send-btn" id="attachBtn" title="Attach File">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+
+                            <button type="button" class="send-btn" id="voiceBtn" title="Speak">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+
                             <button type="submit" class="send-btn">
-                                <i class="fas fa-paper-plane"></i>
-                                Send
+                                <i class="fas fa-paper-plane"></i> Send
                             </button>
                         </div>
+                       
                     </form>
                 </div>
             </div>
@@ -563,7 +576,82 @@
 
             // Initial greeting
             addMessage('Hello! I\'m your AI financial assistant. I can help you track expenses, analyze spending patterns, manage budgets, and answer any finance-related questions. How can I help you today?', 'AI');
+           
+        // Voice to Text (Edit Before Sending)
+        const voiceBtn = document.getElementById('voiceBtn');
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-IN';
+            recognition.interimResults = false;
+
+            voiceBtn.addEventListener('click', () => {
+                recognition.start();
+                voiceBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            });
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                messageInput.value = transcript; // Just fill the input
+                messageInput.focus(); // Let the user review/edit it
+            };
+
+            recognition.onerror = function(event) {
+                alert('Speech recognition error: ' + event.error);
+            };
+
+            recognition.onend = function() {
+                voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+            };
+        } else {
+            voiceBtn.disabled = true;
+            voiceBtn.title = "Speech recognition not supported in this browser.";
+        }
+
+       
         });
+
+
+
+        const attachBtn = document.getElementById('attachBtn');
+        const fileInput = document.getElementById('fileInput');
+
+        attachBtn.addEventListener('click', () => {
+            fileInput.click();  // Trigger file selector
+        });
+
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Get CSRF token
+            const csrftoken = document.cookie.split('; ')
+                .find(row => row.startsWith('csrftoken'))
+                ?.split('=')[1];
+
+            try {
+                const response = await fetch('/upload-document/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrftoken,
+                    },
+                    body: formData,
+                });
+
+                if (!response.ok) throw new Error('Upload failed');
+                const data = await response.json();
+                addMessage(`📎 File uploaded: ${data.filename}`, 'USER');
+            } catch (err) {
+                alert('Error uploading file: ' + err.message);
+            }
+
+            fileInput.value = ''; // Reset input
+        });
+
     </script>
 </body>
 </html>

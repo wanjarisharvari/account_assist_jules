@@ -307,26 +307,53 @@ class GeminiService:
         """
         
         query_prompt = """
-        FUNCTION 4: ANSWERING QUERIES
-        When users ask about their finances, customers, or vendors, respond with the appropriate QUERY tag.
-        
-        For time-based queries, follow these rules:
-        1. You will be provided with ALL relevant data as a list
-        2. When a user asks about "today", "yesterday", "last week", "this month", "last month", etc., filter the data accordingly
-        3. For transaction queries:
-           - Calculate and display the total amount for the filtered transactions
-           - Format amounts as numbers only (e.g., 500, 1000.50)
-           - Do not include currency symbols in the amounts
-           - Show the total at the top of the response
-        4. For customer/vendor queries:
-           - Calculate and display the total count
-           - Show relevant summary information
-        
-        Example query responses:
-        - "QUERY_TRANSACTION" for "Show me my expenses this month"
-        - "QUERY_CUSTOMER" for "List all my customers"
-        - "QUERY_VENDOR" for "Who are my vendors in Delhi?"
+        FUNCTION 4: ANSWERING QUERIES ABOUT FINANCES
+
+        You will receive a list of all relevant transactions, customers, or vendors. Based on the user's query, classify it into one of the following tags:
+        - QUERY_TRANSACTION: For income or expense-related queries
+        - QUERY_CUSTOMER: For customer-related queries
+        - QUERY_VENDOR: For vendor-related queries
+
+        RULES FOR RESPONDING:
+
+        1. TIME FILTERING:
+        - When users ask for time periods like "today", "yesterday", "this week", "last month", etc., filter the data accordingly.
+        - You will be given all data; apply filters based on the user's query. Current date is {current_date}
+
+        2. TRANSACTION QUERIES (QUERY_TRANSACTION):     
+        - You will be provided with ALL transaction data as a list of transactions
+        - When a user asks about "today", "yesterday", "last week", "this month", "last month", etc., filter the transaction data accordingly
+        - "burn" or "spend" refers to expenses
+        - Calculate and display the total amount spent/earned for the specified time period
+        - List the matching transactions
+
+        3. CUSTOMER OR VENDOR QUERIES:
+        - Return the **total count** and list relevant names or details.
+        - Include relevant filters like city or category if provided.
+        - contact details of the customer or vendor if asked
+
+        4. If no matching data is found, respond clearly: 
+        - “There are no matching records in the provided dataset.”
+
+        EXAMPLES:
+        - Query: "Show me my expenses this month"
+        Response:
+        QUERY_TRANSACTION
+        Total: 2100.00
+        1. 2025-05-22 - Paid Mr. Das for COGS - EXPENSE/500 (Mr. Das)
+        2. 2025-05-22 - Payment to Mr. Raju - EXPENSE/500 (Mr. Raju)
+        3. 2025-05-22 - Payment to Mr. Shah - EXPENSE/500 (Mr. Shah)
+        4. 2025-05-22 - Paid Pakshi for COGS - EXPENSE/600 (Pakshi)
+
+        - Query: "List all customers in Delhi"
+        Response:
+        QUERY_CUSTOMER
+        Total customers: 3
+        1. Prakash Traders (Delhi)
+        2. Suman & Co. (Delhi)
+        3. Omkar Textiles (Delhi)
         """
+
         
         critical_instructions = """
         CRITICAL INSTRUCTIONS:
@@ -614,3 +641,53 @@ class GeminiService:
             return f"Sorry, I couldn't generate insights due to an error: {str(e)}"
 
 
+    def generate_actionable_insights(self, transactions: List[Dict], customers: List[Dict], vendors: List[Dict]) -> str:
+        """Generate text-based summary with actionable insights"""
+        if not GEMINI_AVAILABLE or not self.model:
+            return "Financial insights unavailable at the moment. Please try again later."
+        
+        try:
+            prompt = f"""
+            Analyze this business data and provide a concise, actionable summary in this exact format:
+
+            ## Financial Health Snapshot
+            [Brief 2-line overview of financial position]
+
+            ## Spending Analysis
+            - Top 3 expense categories: [Category1] ([%]), [Category2] ([%]), [Category3] ([%])
+            - Unusual spending pattern: [Identify any anomalies]
+            - Immediate cost-saving opportunity: [Specific recommendation]
+
+            ## Customer Management
+            - Highest receivable: [Customer Name] (₹[Amount])
+            - Overdue alerts: [Number] customers with ₹[Total Amount] overdue
+            - Priority action: [Specific collection strategy]
+
+            ## Vendor Relationships
+            - Top vendor by payments: [Vendor Name] (₹[Amount])
+            - Negotiation opportunity: [Vendor Name] ([Reason])
+            - Payment optimization: [Specific suggestion]
+
+            ## Immediate Next Steps
+            1. [Actionable step 1]
+            2. [Actionable step 2]
+            3. [Actionable step 3]
+
+            Use bullet points, keep amounts in ₹, and focus on concrete actions. Data:
+
+            Transactions (Last 30 days):
+            {json.dumps(transactions[:20], indent=2)}
+
+            Customers:
+            {json.dumps(customers[:10], indent=2)}
+
+            Vendors:
+            {json.dumps(vendors[:10], indent=2)}
+            """
+            
+            response = self.model.generate_content(prompt)
+            return response.text
+            
+        except Exception as e:
+            logger.error(f"Insight generation failed: {str(e)}")
+            return "Could not generate insights. Please check your data and try again."

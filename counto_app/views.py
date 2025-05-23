@@ -1,11 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db.models import Sum, F, Q, Count, Avg, Max, Min
 from django.utils import timezone
 from django.db.models.functions import TruncMonth, TruncYear, TruncDay, TruncWeek
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
+from typing import List, Dict, Any, Optional, Union
 import logging
 import json
 
@@ -732,6 +734,83 @@ def analytics(request):
 #     return render(request, 'analytics.html', context)
 
 
+def upload_document(request):
+    logger = logging.getLogger(__name__)
+    logger.info("Upload document endpoint called")
+    
+    if request.method != 'POST':
+        logger.warning(f"Invalid method: {request.method}")
+        return JsonResponse(
+            {'status': 'error', 'message': 'Only POST method is allowed'}, 
+            status=405
+        )
+    
+    if 'file' not in request.FILES:
+        logger.warning("No file part in the request")
+        return JsonResponse(
+            {'status': 'error', 'message': 'No file part'}, 
+            status=400
+        )
+    
+    file = request.FILES['file']
+    if not file:
+        logger.warning("No file selected")
+        return JsonResponse(
+            {'status': 'error', 'message': 'No file selected'}, 
+            status=400
+        )
+    
+    try:
+        logger.info(f"Processing file upload: {file.name} ({file.size} bytes)")
+        
+        # Get file extension
+        file_name = file.name
+        file_ext = os.path.splitext(file_name)[1].lower()
+        safe_name = f"{uuid.uuid4().hex}{file_ext}"
+        
+        # Ensure the upload directory exists
+        upload_dir = settings.PRIVATE_FILE_STORAGE
+        logger.info(f"Upload directory: {upload_dir}")
+        
+        try:
+            os.makedirs(upload_dir, exist_ok=True)
+            logger.info(f"Directory created or exists: {upload_dir}")
+        except Exception as e:
+            logger.error(f"Failed to create directory {upload_dir}: {str(e)}")
+            raise Exception(f"Failed to create upload directory: {str(e)}")
+        
+        # Create the full save path
+        save_path = os.path.join(upload_dir, safe_name)
+        logger.info(f"Saving file to: {save_path}")
+        
+        # Save the file in chunks to handle large files
+        try:
+            with open(save_path, 'wb+') as destination:
+                for chunk in file.chunks():
+                    destination.write(chunk)
+            logger.info("File saved successfully")
+            
+            return JsonResponse({
+                'status': 'ok', 
+                'filename': file_name,
+                'saved_as': safe_name,
+                'path': save_path
+            })
+            
+        except IOError as e:
+            logger.error(f"Failed to save file {save_path}: {str(e)}")
+            raise Exception(f"Failed to save file: {str(e)}")
+            
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"Error in file upload: {error_msg}", exc_info=True)
+        return JsonResponse(
+            {'status': 'error', 'message': error_msg}, 
+            status=500
+        )
+
+
+    
 class ConversationView(APIView):
     """Endpoint for managing conversations"""
     permission_classes = [permissions.IsAuthenticated]
@@ -1582,3 +1661,82 @@ class TransactionConfirmView(APIView):
                 'status': 'success',
                 'message': 'Transaction cancelled'
             })
+
+
+
+@login_required
+def financial_summary(request):
+    # Get data
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    
+    # Transactions
+    transactions = Transaction.objects.filter(
+        user=request.user,
+        date__gte=thirty_days_ago
+    ).order_by('-date')
+    
+    # Get the date 30 days ago for overdue calculation
+    thirty_days_ago = timezone.now().date() - timedelta(days=30)
+    
+    # Customers with overdue invoices
+    customers = Customer.objects.filter(
+        user=request.user, 
+        is_active=True
+    ).annotate(
+        overdue_invoices=Count(
+            'invoices', 
+            filter=Q(
+                invoices__due_date__lt=timezone.now().date(),
+                invoices__amount_received__lt=F('invoices__amount_due')
+            )
+        )
+    )
+    
+    # Vendors with overdue bills
+    vendors = Vendor.objects.filter(
+        user=request.user, 
+        is_active=True
+    ).annotate(
+        overdue_bills=Count(
+            'bills',
+            filter=Q(
+                bills__due_date__lt=timezone.now().date(),
+                bills__amount_paid__lt=F('bills__amount_due')
+            )
+        )
+    )
+    
+    # Prepare data for analysis
+    transaction_data = [{
+        'date': tx.date.strftime('%Y-%m-%d'),
+        'amount': float(tx.amount),
+        'category': tx.category,
+        'type': tx.transaction_type,
+        'party': tx.customer.name if tx.customer else tx.vendor.name if tx.vendor else ''
+    } for tx in transactions]
+    
+    customer_data = [{
+        'name': c.name,
+        'balance': float(c.outstanding_balance),
+        'overdue': c.overdue_invoices
+    } for c in customers]
+    
+    vendor_data = [{
+        'name': v.name,
+        'balance': float(v.outstanding_balance),
+        'overdue': v.overdue_bills
+    } for v in vendors]
+    
+    # Generate insights
+    gemini_service = GeminiService()
+    insights = gemini_service.generate_actionable_insights(
+        transaction_data,
+        customer_data,
+        vendor_data
+    )
+    
+    return render(request, 'summary.html', {
+        'insights': insights,
+        'total_income': sum(t.amount for t in transactions if t.transaction_type == 'INCOME'),
+        'total_expenses': sum(t.amount for t in transactions if t.transaction_type == 'EXPENSE')
+    })
