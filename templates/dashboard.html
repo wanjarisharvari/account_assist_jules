@@ -7,389 +7,503 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            /* Primary Colors */
+            --primary-color: #2A52BE; /* Primary Blue - Trust & Stability */
+            --primary-hover: #1E3D8B;
+            --secondary-color: #4DB8BA; /* Secondary Blue/Teal - Modernity */
+            --secondary-hover: #3A9A9C;
+            --accent-color: #28A745; /* Accent Green - Growth & Positivity */
+            
+            /* Neutral Colors */
+            --text-primary: #343A40; /* Dark Gray - Primary Text */
+            --text-secondary: #6C757D; /* Medium Gray - Secondary Text */
+            --text-light: #ADB5BD; /* Light Gray - Subtle Text */
+            --bg-main: #F8F9FA; /* Very Light Gray - Background */
+            --bg-card: #FFFFFF; /* White - Card Backgrounds */
+            --bg-navbar-top: rgba(255, 255, 255, 0.95);
+            --bg-navbar-side: linear-gradient(180deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+            --border-color: #DEE2E6; /* Light border color */
+            
+            /* Feedback Colors */
+            --success-color: #28A745; /* Success Green */
+            --danger-color: #DC3545; /* Error/Danger Red */
+            --warning-color: #FFC107; /* Warning Yellow */
+            --info-color: #4DB8BA; /* Info Teal (matches secondary) */
+            
+            /* Shadows */
+            --shadow-soft: 0 4px 12px rgba(42, 82, 190, 0.08);
+            --shadow-medium: 0 8px 24px rgba(42, 82, 190, 0.12);
+
+            --font-main: 'Inter', sans-serif;
+            --border-radius-sm: 0.375rem; /* 6px */
+            --border-radius-md: 0.75rem; /* 12px */
+            --border-radius-lg: 1rem; /* 16px */
+        }
+
         body {
-            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            color: #333;
+            font-family: var(--font-main);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
             margin: 0;
             padding: 0;
+            font-weight: 400;
+            overflow-x: hidden; /* Prevent horizontal scroll */
         }
-        
+
         /* Top Navbar */
         .top-navbar {
-            background-color: #ffffff;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            background-color: var(--bg-navbar-top);
+            backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-soft);
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             z-index: 1040;
-            height: 60px;
+            height: 65px; /* Slightly taller */
+            padding: 0 1.5rem;
         }
-        
+
         .navbar-brand {
-            font-weight: 700;
-            color: #2c3e50 !important;
+            font-weight: 800;
+            color: var(--primary-color) !important;
+            font-size: 1.6rem;
+            display: flex;
+            align-items: center;
+        }
+        .navbar-brand i {
+            color: var(--secondary-color);
+            margin-right: 0.6rem;
             font-size: 1.5rem;
         }
-        
-        .navbar .nav-link {
-            color: #2c3e50 !important;
+        .top-navbar .text-muted {
+            color: var(--text-secondary) !important;
+        }
+        .top-navbar .btn-outline-danger {
+            color: var(--danger-color);
+            border-color: var(--danger-color);
             font-weight: 500;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.9rem;
         }
-        
-        .navbar .nav-link:hover {
-            color: #3498db !important;
+        .top-navbar .btn-outline-danger:hover {
+            background-color: var(--danger-color);
+            color: white;
         }
-        
+
+
         /* Main Layout */
         .main-wrapper {
-            margin-top: 60px;
+            margin-top: 65px;
             display: flex;
-            min-height: calc(100vh - 60px);
+            min-height: calc(100vh - 65px);
         }
-        
+
         /* Side Navigation */
         .side-navbar {
-            width: 260px;
-            background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+            width: 270px; /* Slightly wider */
+            background: var(--bg-navbar-side);
             color: white;
             position: fixed;
             left: 0;
-            top: 60px;
+            top: 65px;
             bottom: 0;
             overflow-y: auto;
-            transition: all 0.3s ease;
+            transition: transform 0.3s ease-in-out;
             z-index: 1030;
+            padding-top: 1.5rem;
+            box-shadow: 3px 0 15px rgba(0,0,0,0.05);
         }
-        
+
         .side-navbar-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 0 1.5rem 1.5rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
         }
-        
+
         .user-profile {
             text-align: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
-        
+
         .user-avatar i {
-            color: #bdc3c7;
-            margin-bottom: 0.5rem;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 0.75rem;
+            font-size: 3.5rem;
         }
-        
+
         .user-profile h6 {
             font-weight: 600;
             margin-bottom: 0.25rem;
+            color: white;
+            font-size: 1.1rem;
         }
-        
-        .user-profile .text-muted {
-            color: #95a5a6 !important;
+
+        .user-profile .text-muted { /* Override bootstrap */
+            color: rgba(255,255,255,0.7) !important;
             font-size: 0.875rem;
         }
-        
+
         .nav-menu {
-            padding: 0 1rem;
+            padding: 1rem 1rem; /* Padding around the menu items */
         }
-        
+
         .nav-menu .nav-link {
             color: rgba(255, 255, 255, 0.8);
             font-weight: 500;
-            padding: 0.75rem 1rem;
-            margin-bottom: 0.25rem;
-            border-radius: 0.5rem;
-            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            padding: 0.85rem 1.25rem; /* Increased padding */
+            margin-bottom: 0.35rem;
+            border-radius: var(--border-radius-md);
+            transition: all 0.25s ease;
             display: flex;
             align-items: center;
         }
-        
+
         .nav-menu .nav-link:hover,
         .nav-menu .nav-item.active .nav-link {
-            color: #ffffff;
-            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: var(--primary-color);
+            background-color: white;
             transform: translateX(5px);
-            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        
+        .nav-menu .nav-item.active .nav-link {
+             font-weight: 600;
+        }
+
         .nav-menu .nav-link i {
-            width: 20px;
-            margin-right: 0.75rem;
+            width: 22px; /* Icon width */
+            margin-right: 0.85rem;
+            font-size: 1.1rem; /* Icon size */
         }
-        
+
         /* Content Area */
         .content-wrapper {
-            margin-left: 260px;
+            margin-left: 270px;
             flex: 1;
-            padding: 0;
-            background-color: #f8f9fa;
+            padding: 0; /* Chat container will handle padding */
+            background-color: var(--bg-main);
+            transition: margin-left 0.3s ease-in-out;
         }
-        
+
         .chat-container {
-            height: calc(100vh - 60px);
+            height: calc(100vh - 65px - 2rem); /* Full height minus topbar and margin */
             display: flex;
             flex-direction: column;
-            background: white;
+            background: var(--bg-card);
             margin: 1rem;
-            border-radius: 1rem;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-soft);
             overflow: hidden;
         }
-        
+
         .chat-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
             color: white;
-            padding: 1.5rem;
+            padding: 1.25rem 1.75rem; /* Enhanced padding */
             display: flex;
             align-items: center;
             justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
         }
-        
+
         .chat-header h4 {
             margin: 0;
-            font-weight: 600;
+            font-weight: 700;
+            font-size: 1.35rem;
             display: flex;
             align-items: center;
+            color: white;
         }
-        
-        .chat-header i {
-            margin-right: 0.5rem;
-            font-size: 1.25rem;
+
+        .chat-header i.fa-robot, .chat-header i.fa-circle {
+            margin-right: 0.75rem;
+            font-size: 1.3rem;
         }
-        
+         .chat-header .text-white-50 {
+            font-size: 0.9rem;
+        }
+
         #conversation {
             flex: 1;
             overflow-y: auto;
-            padding: 1.5rem;
-            background: #ffffff;
+            padding: 1.75rem;
+            background: var(--bg-card); /* Or a slightly different shade like #FDFDFD */
         }
-        
+
         .chat-footer {
-            padding: 1.5rem;
-            background: #ffffff;
-            border-top: 1px solid #e9ecef;
+            padding: 1.25rem 1.75rem;
+            background: #F8F9FA; /* Slightly different from main bg for separation */
+            border-top: 1px solid var(--border-color);
         }
-        
+
         .input-group textarea {
-            border-radius: 2rem;
-            border: 2px solid #e9ecef;
-            padding: 0.75rem 1.25rem;
+            border-radius: var(--border-radius-md);
+            border: 1px solid var(--border-color);
+            padding: 0.85rem 1.25rem;
             resize: none;
             transition: all 0.3s ease;
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 1rem;
         }
-        
+
+        .input-group textarea::placeholder {
+            color: var(--text-light);
+        }
+
         .input-group textarea:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 0.2rem rgba(91, 192, 190, 0.25); /* Using secondary color */
         }
-        
+
         .send-btn {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: var(--primary-color);
             border: none;
-            border-radius: 2rem;
-            padding: 0.75rem 1.5rem;
+            border-radius: var(--border-radius-md);
+            padding: 0.85rem 1.35rem;
             color: white;
             font-weight: 600;
             margin-left: 0.75rem;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
+        .send-btn i { font-size: 1rem; }
+
         .send-btn:hover {
+            background: var(--primary-hover);
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 10px rgba(58, 80, 107, 0.25);
         }
-        
+         #attachBtn {
+            background: var(--text-light);
+         }
+         #attachBtn:hover {
+            background: var(--text-secondary);
+         }
+         #voiceBtn {
+            background: var(--secondary-color);
+         }
+         #voiceBtn:hover {
+            background: var(--secondary-hover);
+         }
+
+
         /* Message Bubbles */
-        .message-bubble {
+        .message-wrapper { /* Added wrapper for better spacing control */
+            margin-bottom: 1.25rem;
+            display: flex;
             animation: fadeIn 0.4s ease-out;
-            word-wrap: break-word;
-            border-radius: 1.5rem;
-            padding: 1rem 1.25rem;
-            margin-bottom: 1rem;
-            max-width: 70%;
         }
-        
-        .user-message {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+        .message-bubble {
+            word-wrap: break-word;
+            border-radius: var(--border-radius-lg);
+            padding: 0.85rem 1.25rem;
+            max-width: 75%;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        .user-message .message-bubble {
+            background: var(--primary-color);
             color: white;
             margin-left: auto;
-            border-bottom-right-radius: 0.5rem;
+            border-bottom-right-radius: var(--border-radius-sm);
         }
-        
-        .ai-message {
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            color: #2c3e50;
-            border-bottom-left-radius: 0.5rem;
-            border: 1px solid #dee2e6;
+
+        .ai-message .message-bubble {
+            background: #E9ECEF; /* Bootstrap light grey */
+            color: var(--text-primary);
+            border-bottom-left-radius: var(--border-radius-sm);
+            border: 1px solid #DEE2E6;
         }
-        
+        .ai-message .message-bubble a {
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+        .ai-message .message-bubble a:hover {
+            color: var(--primary-hover);
+        }
+
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
+
         /* Typing Animation */
         .typing-dots {
             display: flex;
             align-items: center;
             font-style: italic;
-            color: #6c757d;
+            color: var(--text-secondary);
+            padding: 0.85rem 0; /* Match bubble padding */
         }
-        
+
         .typing-dots span {
             animation: typing 1.4s infinite ease-in-out;
             display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 9px;
+            height: 9px;
             border-radius: 50%;
-            background: #667eea;
+            background: var(--secondary-color);
             margin: 0 3px;
         }
-        
+
         .typing-dots span:nth-child(1) { animation-delay: 0s; }
         .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
         .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-        
+
         @keyframes typing {
-            0%, 80%, 100% { transform: scale(0.5); opacity: 0.5; }
-            40% { transform: scale(1.2); opacity: 1; }
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.6; }
+            40% { transform: scale(1); opacity: 1; }
         }
-        
+
         /* Scrollbar */
         #conversation::-webkit-scrollbar {
-            width: 6px;
+            width: 8px;
         }
-        
+
         #conversation::-webkit-scrollbar-track {
             background: transparent;
         }
-        
+
         #conversation::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: var(--text-light);
             border-radius: 10px;
         }
-        
+        #conversation::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+
         /* Mobile Responsiveness */
-        @media (max-width: 768px) {
+        .mobile-toggle {
+            display: none; /* Hidden by default */
+            position: fixed;
+            top: 12px; /* Align with top navbar */
+            left: 1rem;
+            z-index: 1045; /* Above side-navbar when closed */
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            box-shadow: var(--shadow-medium);
+            transition: background-color 0.2s ease;
+        }
+        .mobile-toggle:hover {
+            background: var(--primary-hover);
+        }
+
+
+        @media (max-width: 992px) { /* Breakpoint for sidebar toggle */
             .side-navbar {
-                left: -260px;
-                box-shadow: 0 0 20px rgba(0,0,0,0.3);
+                transform: translateX(-270px);
             }
-            
             .side-navbar.active {
-                left: 0;
+                transform: translateX(0);
+                box-shadow: 5px 0 25px rgba(0,0,0,0.15);
             }
-            
             .content-wrapper {
                 margin-left: 0;
             }
-            
-            .chat-container {
-                margin: 0.5rem;
-                border-radius: 0.5rem;
-            }
-            
-            .message-bubble {
-                max-width: 85%;
-            }
-        }
-        
-        .mobile-toggle {
-            display: none;
-        }
-        
-        @media (max-width: 768px) {
             .mobile-toggle {
                 display: inline-block;
-                position: fixed;
-                top: 70px;
-                left: 1rem;
-                z-index: 1035;
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                color: white;
-                border: none;
-                border-radius: 50%;
-                width: 50px;
-                height: 50px;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            }
+            .top-navbar {
+                padding-left: 4rem; /* Space for toggle button */
             }
         }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                margin: 0.5rem;
+                height: calc(100vh - 65px - 1rem);
+            }
+            .message-bubble {
+                max-width: 90%;
+            }
+            .chat-header { padding: 1rem 1.25rem; }
+            .chat-footer { padding: 1rem 1.25rem; }
+            #conversation { padding: 1.25rem; }
+             .top-navbar .navbar-brand { font-size: 1.3rem; }
+             .top-navbar .navbar-brand i { font-size: 1.2rem; }
+             .top-navbar .text-muted strong { display: none; } /* Hide username on small screens */
+        }
+
     </style>
 </head>
 <body>
-    <!-- Top Navbar -->
-    <nav class="navbar navbar-expand-lg top-navbar">
-        <div class="container-fluid px-4">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-calculator me-2" style="color: #3498db;"></i>
-                AccountAssist
+    <nav class="navbar navbar-expand top-navbar">
+        <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle sidebar">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <a class="navbar-brand" href="/">
+            <i class="fas fa-calculator"></i>
+            AccountAssist
+        </a>
+        <div class="ms-auto d-flex align-items-center">
+            <span class="me-3 text-muted d-none d-md-inline">Welcome, <strong>{{ user.username }}</strong></span>
+            <a href="/logout/" class="btn btn-outline-danger btn-sm">
+                <i class="fas fa-sign-out-alt me-1"></i>
+                Logout
             </a>
-            <div class="d-flex align-items-center">
-                <span class="me-3 text-muted">Welcome, <strong>{{ user.username }}</strong></span>
-                <a href="/logout/" class="btn btn-outline-danger btn-sm">
-                    <i class="fas fa-sign-out-alt me-1"></i>
-                    Logout
-                </a>
-            </div>
         </div>
     </nav>
 
-    <!-- Mobile Menu Toggle -->
-    <button class="mobile-toggle" id="mobileToggle">
-        <i class="fas fa-bars"></i>
-    </button>
-
-    <!-- Main Wrapper -->
     <div class="main-wrapper">
-        <!-- Side Navigation -->
         <div class="side-navbar" id="sideNavbar">
             <div class="side-navbar-header">
                 <div class="user-profile">
                     <div class="user-avatar">
-                        <i class="fas fa-user-circle fa-3x"></i>
+                        <i class="fas fa-user-circle"></i>
                     </div>
                     <h6>{{ user.username }}</h6>
-                    <p class="text-muted small">{{ user.email }}</p>
+                    <p class="text-muted small mb-0">{{ user.email }}</p>
                 </div>
-
-                <ul class="nav-menu list-unstyled">
-                    <li class="nav-item active">
-                        <a href="#" class="nav-link">
-                            <i class="fas fa-comments"></i>
-                            <span>Chat</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/analytics/" class="nav-link">
-                            <i class="fas fa-chart-bar"></i>
-                            <span>Analytics</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link">
-                            <i class="fas fa-history"></i>
-                            <span>Chat History</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link">
-                            <i class="fas fa-folder"></i>
-                            <span>Documents</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="#" class="nav-link">
-                            <i class="fas fa-cog"></i>
-                            <span>Settings</span>
-                        </a>
-                    </li>
-                </ul>
             </div>
+            <ul class="nav-menu list-unstyled">
+                <li class="nav-item active">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-comments fa-fw"></i>
+                        <span>Chat</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/analytics/" class="nav-link">
+                        <i class="fas fa-chart-bar fa-fw"></i>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-history fa-fw"></i>
+                        <span>Chat History</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-folder fa-fw"></i>
+                        <span>Documents</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-cog fa-fw"></i>
+                        <span>Settings</span>
+                    </a>
+                </li>
+            </ul>
         </div>
 
-        <!-- Content Wrapper -->
         <div class="content-wrapper">
             <div class="chat-container">
                 <div class="chat-header">
@@ -398,42 +512,36 @@
                         Financial Assistant
                     </h4>
                     <div class="text-white-50">
-                        <i class="fas fa-circle text-success"></i>
+                        <i class="fas fa-circle text-success" style="font-size: 0.7rem; vertical-align: middle;"></i>
                         Online
                     </div>
                 </div>
-                
+
                 <div id="conversation">
-                    <!-- Messages will be inserted here -->
-                </div>
-                
+                    </div>
+
                 <div class="chat-footer">
                     <form id="messageForm">
                         <div class="input-group align-items-end">
-                            <textarea 
-                                class="form-control" 
-                                id="messageInput" 
-                                placeholder="Ask me about your finances..." 
+                            <textarea
+                                class="form-control"
+                                id="messageInput"
+                                placeholder="Ask me about your finances..."
                                 rows="1"
                             ></textarea>
-                            
-                            <!-- Hidden file input -->
+
                             <input type="file" id="fileInput" style="display: none;" accept=".pdf,.jpg,.png,.doc,.docx,.xls,.xlsx,.csv"/>
 
-                            <!-- Attach button -->
                             <button type="button" class="send-btn" id="attachBtn" title="Attach File">
                                 <i class="fas fa-paperclip"></i>
                             </button>
-
                             <button type="button" class="send-btn" id="voiceBtn" title="Speak">
                                 <i class="fas fa-microphone"></i>
                             </button>
-
-                            <button type="submit" class="send-btn">
-                                <i class="fas fa-paper-plane"></i> Send
+                            <button type="submit" class="send-btn" id="submitBtn" title="Send">
+                                <i class="fas fa-paper-plane"></i>
                             </button>
                         </div>
-                       
                     </form>
                 </div>
             </div>
@@ -448,20 +556,23 @@
             const conversation = document.getElementById('conversation');
             const sideNavbar = document.getElementById('sideNavbar');
             const mobileToggle = document.getElementById('mobileToggle');
+            const contentWrapper = document.querySelector('.content-wrapper'); // For overlay
 
             let conversationId = null;
 
             // Mobile menu toggle
-            mobileToggle.addEventListener('click', function() {
-                sideNavbar.classList.toggle('active');
-            });
+            if (mobileToggle) {
+                mobileToggle.addEventListener('click', function() {
+                    sideNavbar.classList.toggle('active');
+                });
+            }
 
-            // Close sidebar when clicking outside on mobile
+            // Close sidebar when clicking outside on mobile/tablet
             document.addEventListener('click', function(event) {
-                if (window.innerWidth <= 768) {
+                if (window.innerWidth <= 992) { // Apply up to the breakpoint where toggle is visible
                     const isClickInsideNavbar = sideNavbar.contains(event.target);
                     const isClickOnToggle = mobileToggle.contains(event.target);
-                    
+
                     if (!isClickInsideNavbar && !isClickOnToggle && sideNavbar.classList.contains('active')) {
                         sideNavbar.classList.remove('active');
                     }
@@ -471,37 +582,41 @@
             // Auto-resize textarea
             messageInput.addEventListener('input', function() {
                 this.style.height = 'auto';
-                const maxHeight = 120;
+                const maxHeight = 120; // Max height for 4-5 lines
                 this.style.height = Math.min(this.scrollHeight, maxHeight) + 'px';
             });
 
             function addMessage(content, sender, isHtml = false) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'd-flex ' + (sender === 'USER' ? 'justify-content-end' : 'justify-content-start');
-                
+                const messageWrapper = document.createElement('div');
+                messageWrapper.className = 'message-wrapper ' + (sender === 'USER' ? 'user-message' : 'ai-message');
+
                 const messageBubble = document.createElement('div');
-                messageBubble.className = 'message-bubble ' + (sender === 'USER' ? 'user-message' : 'ai-message');
-                
+                messageBubble.className = 'message-bubble';
+
                 if (isHtml) {
-                    messageBubble.innerHTML = content;
+                    messageBubble.innerHTML = content; // Make sure to sanitize AI HTML content on server
                 } else {
                     messageBubble.textContent = content;
                 }
-                
-                messageDiv.appendChild(messageBubble);
-                conversation.appendChild(messageDiv);
-                conversation.scrollTop = conversation.scrollHeight;
+
+                messageWrapper.appendChild(messageBubble);
+                conversation.appendChild(messageWrapper);
+                conversation.scrollTop = conversation.scrollHeight; // Scroll to bottom
             }
 
-            async function sendMessage(message) {
+
+            async function sendMessage(messageText) {
                 // Add typing indicator
                 const typingId = 'typing-' + Date.now();
-                addMessage('<div class="typing-dots"><span></span><span></span><span></span></div> Thinking...', 'AI', true);
-                const typingElement = conversation.lastElementChild;
-                typingElement.id = typingId;
+                const typingHTML = '<div class="typing-dots"><span></span><span></span><span></span></div> Thinking...';
+                addMessage(typingHTML, 'AI', true);
+
+                // The typing message is the last child. We can find it to remove it later.
+                const typingElementWrapper = conversation.lastElementChild;
+                if (typingElementWrapper) typingElementWrapper.id = typingId;
+
 
                 try {
-                    // Get CSRF token
                     function getCookie(name) {
                         let cookieValue = null;
                         if (document.cookie && document.cookie !== '') {
@@ -516,18 +631,17 @@
                         }
                         return cookieValue;
                     }
-                    
                     const csrftoken = getCookie('csrftoken');
 
-                    const response = await fetch('/api/messages/', {
+                    const response = await fetch('/api/messages/', { // Ensure this URL is correct
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRFToken': csrftoken,
                         },
-                        credentials: 'same-origin',
+                        credentials: 'same-origin', // Important for CSRF
                         body: JSON.stringify({
-                            content: message,
+                            content: messageText,
                             conversation_id: conversationId
                         })
                     });
@@ -536,122 +650,171 @@
                     const typingToRemove = document.getElementById(typingId);
                     if (typingToRemove) typingToRemove.remove();
 
+
                     if (!response.ok) {
-                        throw new Error('Failed to send message');
+                        const errorData = await response.json().catch(() => ({ detail: 'Failed to send message. Server error.' }));
+                        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
                     }
 
                     const data = await response.json();
-                    conversationId = data.conversation_id;
-                    addMessage(data.message, 'AI', data.is_html);
+                    conversationId = data.conversation_id; // Update conversation ID
+                    addMessage(data.message, 'AI', data.is_html); // is_html should come from backend
 
                 } catch (error) {
-                    // Remove typing indicator
-                    const typingToRemove = document.getElementById(typingId);
-                    if (typingToRemove) typingToRemove.remove();
-                    
-                    console.error('Error:', error);
-                    addMessage('Sorry, there was an error processing your message. Please try again.', 'AI');
+                    console.error('Error sending message:', error);
+                     // Remove typing indicator if an error occurs before response processing
+                    const typingToRemoveOnError = document.getElementById(typingId);
+                    if (typingToRemoveOnError) typingToRemoveOnError.remove();
+                    addMessage(`Sorry, there was an error: ${error.message}. Please try again.`, 'AI');
                 }
             }
 
-            // Form submission
             messageForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const message = messageInput.value.trim();
                 if (message) {
                     addMessage(message, 'USER');
                     messageInput.value = '';
-                    messageInput.style.height = 'auto';
+                    messageInput.style.height = 'auto'; // Reset height
                     sendMessage(message);
                 }
             });
 
-            // Enter key support
             messageInput.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    messageForm.dispatchEvent(new Event('submit'));
+                    messageForm.dispatchEvent(new Event('submit', { cancelable: true }));
                 }
             });
-
+            
             // Initial greeting
-            addMessage('Hello! I\'m your AI financial assistant. I can help you track expenses, analyze spending patterns, manage budgets, and answer any finance-related questions. How can I help you today?', 'AI');
-           
-        // Voice to Text (Edit Before Sending)
-        const voiceBtn = document.getElementById('voiceBtn');
-
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'en-IN';
-            recognition.interimResults = false;
-
-            voiceBtn.addEventListener('click', () => {
-                recognition.start();
-                voiceBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            });
-
-            recognition.onresult = function(event) {
-                const transcript = event.results[0][0].transcript;
-                messageInput.value = transcript; // Just fill the input
-                messageInput.focus(); // Let the user review/edit it
-            };
-
-            recognition.onerror = function(event) {
-                alert('Speech recognition error: ' + event.error);
-            };
-
-            recognition.onend = function() {
-                voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
-            };
-        } else {
-            voiceBtn.disabled = true;
-            voiceBtn.title = "Speech recognition not supported in this browser.";
-        }
-
-       
-        });
+            setTimeout(() => { // Slight delay for better perceived load
+                 addMessage('Hello! I\'m your AI financial assistant. I can help you track expenses, analyze spending patterns, manage budgets, and answer any finance-related questions. How can I help you today?', 'AI');
+            }, 500);
 
 
+            // Voice to Text
+            const voiceBtn = document.getElementById('voiceBtn');
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+                recognition.lang = 'en-IN'; // Or your target language
+                recognition.interimResults = false; // We want the final result
 
-        const attachBtn = document.getElementById('attachBtn');
-        const fileInput = document.getElementById('fileInput');
-
-        attachBtn.addEventListener('click', () => {
-            fileInput.click();  // Trigger file selector
-        });
-
-        fileInput.addEventListener('change', async () => {
-            const file = fileInput.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            // Get CSRF token
-            const csrftoken = document.cookie.split('; ')
-                .find(row => row.startsWith('csrftoken'))
-                ?.split('=')[1];
-
-            try {
-                const response = await fetch('/upload-document/', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrftoken,
-                    },
-                    body: formData,
+                voiceBtn.addEventListener('click', () => {
+                    try {
+                        recognition.start();
+                        voiceBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                        voiceBtn.disabled = true;
+                    } catch(e) {
+                        // Handle cases where recognition is already started or other errors
+                        console.error("Speech recognition start error:", e);
+                        alert("Could not start voice recognition. It might already be active or there's a permission issue.");
+                        voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+                        voiceBtn.disabled = false;
+                    }
                 });
 
-                if (!response.ok) throw new Error('Upload failed');
-                const data = await response.json();
-                addMessage(`📎 File uploaded: ${data.filename}`, 'USER');
-            } catch (err) {
-                alert('Error uploading file: ' + err.message);
+                recognition.onresult = function(event) {
+                    const transcript = event.results[0][0].transcript;
+                    messageInput.value = transcript;
+                    messageInput.focus();
+                    messageInput.style.height = 'auto';
+                    messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+                };
+
+                recognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    let errorMessage = 'Speech recognition error: ' + event.error;
+                    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                        errorMessage = "Voice input permission denied. Please enable microphone access in your browser settings.";
+                    } else if (event.error === 'no-speech') {
+                        errorMessage = "No speech detected. Please try speaking clearly.";
+                    }
+                    alert(errorMessage);
+                };
+
+                recognition.onend = function() {
+                    voiceBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+                    voiceBtn.disabled = false;
+                };
+            } else {
+                voiceBtn.disabled = true;
+                voiceBtn.title = "Speech recognition not supported in this browser.";
             }
 
-            fileInput.value = ''; // Reset input
-        });
+            // File Attachment
+            const attachBtn = document.getElementById('attachBtn');
+            const fileInput = document.getElementById('fileInput');
 
+            attachBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', async () => {
+                const file = fileInput.files[0];
+                if (!file) return;
+
+                addMessage(`📎 Attaching: ${file.name}...`, 'USER'); // Optimistic UI
+
+                const formData = new FormData();
+                formData.append('file', file);
+                if (conversationId) { // Append conversation_id if available
+                    formData.append('conversation_id', conversationId);
+                }
+
+
+                // Get CSRF token
+                function getCookie(name) {
+                    let cookieValue = null;
+                    if (document.cookie && document.cookie !== '') {
+                        const cookies = document.cookie.split(';');
+                        for (let i = 0; i < cookies.length; i++) {
+                            const cookie = cookies[i].trim();
+                            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                                break;
+                            }
+                        }
+                    }
+                    return cookieValue;
+                }
+                const csrftoken = getCookie('csrftoken');
+
+                try {
+                    const response = await fetch('/upload-document/', { // Ensure this URL is correct
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrftoken,
+                            // 'Content-Type': 'multipart/form-data' is set automatically by browser for FormData
+                        },
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: 'File upload failed.'}));
+                        throw new Error(errorData.detail || `Upload failed with status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    // Remove optimistic message if you want, or update it
+                    // For now, let the AI respond about the file.
+                    // addMessage(`✅ File uploaded: ${data.filename}. The AI will process it.`, 'USER');
+                    if (data.message_to_user) { // If backend sends a confirmation for user
+                        addMessage(data.message_to_user, 'AI', data.is_html || false);
+                    }
+                    if (data.conversation_id) { // Update conversation ID if returned
+                        conversationId = data.conversation_id;
+                    }
+
+
+                } catch (err) {
+                    console.error('Error uploading file:', err);
+                    addMessage(`⚠️ Error uploading ${file.name}: ${err.message}`, 'AI');
+                } finally {
+                    fileInput.value = ''; // Reset file input
+                }
+            });
+        });
     </script>
 </body>
 </html>

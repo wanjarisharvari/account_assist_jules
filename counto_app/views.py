@@ -880,7 +880,16 @@ class MessageView(APIView):
                     user_message, 
                     list(history)
                 )
-                # Convert intent_type to the expected format
+                
+                # For UNKNOWN intents, return the AI response directly
+                if intent_type == 'UNKNOWN':
+                    return Response({
+                        'conversation_id': conversation.id,
+                        'message': ai_response,
+                        'intent_type': 'GENERAL_RESPONSE'
+                    })
+                    
+                # Convert intent_type to the expected format for known intents
                 if is_query:
                     intent_type = f'QUERY_{intent_type}'
                 else:
@@ -1726,6 +1735,16 @@ def financial_summary(request):
         'balance': float(v.outstanding_balance),
         'overdue': v.overdue_bills
     } for v in vendors]
+    
+    # Print debug information
+    print("\n=== DATA SENT TO GEMINI FOR SUMMARY ===")
+    print("\nTRANSACTIONS (Last 30 days):")
+    print(json.dumps(transaction_data, indent=2))
+    print("\nCUSTOMERS:")
+    print(json.dumps(customer_data, indent=2))
+    print("\nVENDORS:")
+    print(json.dumps(vendor_data, indent=2))
+    print("\n" + "="*80 + "\n")
     
     # Generate insights
     gemini_service = GeminiService()

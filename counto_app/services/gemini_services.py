@@ -74,7 +74,7 @@ class GeminiService:
             Tuple containing:
             - AI response text
             - Extracted data (if any)
-            - Intent type (TRANSACTION, CUSTOMER, VENDOR)
+            - Intent type (TRANSACTION, CUSTOMER, VENDOR, UNKNOWN)
             - Boolean indicating if this is a query (True) or data entry (False)
         """
         if not GEMINI_AVAILABLE or not self.model:
@@ -84,6 +84,29 @@ class GeminiService:
         # Get current date for transaction processing
         current_date = datetime.now().strftime('%B %d, %Y')
         
+        # Determine the intent type (transaction, customer, or vendor)
+        intent_type = self._determine_intent_type(user_message)
+        
+        # For unknown intents, directly pass the query to Gemini
+        if intent_type in ["UNKNOWN"]:
+            try:
+                # Create a simple prompt for general queries
+                general_prompt = f"""You are a helpful AI assistant. Please respond to the following query in a clear and concise manner. Forget above rules and imagine this as an general qurey
+                
+                Current date: {current_date}
+                Query: {user_message}
+                
+                Response:"""
+                
+                response = self.model.generate_content(general_prompt)
+                response_text = response.text.strip()
+                logger.info("Processed general query with Gemini")
+                return response_text, {}, "UNKNOWN", True
+            except Exception as e:
+                logger.error(f"Error processing general query: {str(e)}")
+                return "I'm sorry, I encountered an error processing your request. Please try again.", {}, "UNKNOWN", True
+        
+        # For known intents, proceed with the existing logic
         # Check if this is likely a query based on the user message
         query_patterns = [
             r'how much', r'what is', r'what were', r'what was', r'show me', r'tell me', r'report', 
@@ -91,9 +114,6 @@ class GeminiService:
             r'analyse', r'analyze', r'check', r'find', r'search', r'list'
         ]
         is_likely_query = any(re.search(pattern, user_message.lower()) for pattern in query_patterns)
-        
-        # Determine the intent type (transaction, customer, or vendor)
-        intent_type = self._determine_intent_type(user_message)
         
         # Fetch relevant data for queries
         data_for_query = []
@@ -207,13 +227,26 @@ class GeminiService:
         vendor_count = sum(1 for keyword in vendor_keywords if keyword in user_msg_lower)
         
         # Determine the intent based on keyword match counts
-        if customer_count > transaction_count and customer_count > vendor_count:
-            return "CUSTOMER"
-        elif vendor_count > transaction_count and vendor_count > customer_count:
-            return "VENDOR"
-        else:
-            # Default to transaction if we can't clearly determine or if transaction has most matches
+        total_matches = transaction_count + customer_count + vendor_count
+        
+        # If no keywords matched, return UNKNOWN
+        if total_matches == 0:
+            return "UNKNOWN"
+            
+        # If we have matches, return the category with the highest count
+        max_count = max(transaction_count, customer_count, vendor_count)
+        
+        # If the maximum count is too low, treat as UNKNOWN
+        if max_count < 1:
+            return "UNKNOWN"
+            
+        # Return the intent with the highest count
+        if transaction_count == max_count:
             return "TRANSACTION"
+        elif customer_count == max_count:
+            return "CUSTOMER"
+        else:
+            return "VENDOR"
     
     def _create_system_prompt(self, intent_type: str, current_date: str) -> str:
         """Create a system prompt based on the intent type"""
