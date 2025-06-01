@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from decimal import Decimal
+from django.conf import settings # Add this import
+import os # Add this import
 
 # Create your models here.
 class Conversation(models.Model):
@@ -326,3 +328,46 @@ class BillPayment(models.Model):
 
     def __str__(self):
         return f"Payment ₹{self.amount} for {self.bill.bill_number}"
+
+
+class UploadedDocument(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='documents')
+    original_filename = models.CharField(max_length=255)
+    saved_filename = models.CharField(max_length=255, unique=True)
+    file_path = models.CharField(max_length=1024) # Increased length for longer paths
+    upload_date = models.DateTimeField(auto_now_add=True)
+    description = models.TextField(blank=True, null=True)
+    file_size = models.PositiveIntegerField(default=0) # To store file size in bytes
+    content_type = models.CharField(max_length=100, blank=True, null=True) # To store MIME type
+
+    def __str__(self):
+        return f"{self.original_filename} (User: {self.user.username})"
+
+    def get_download_url(self):
+        # This method will be used later to generate download links
+        from django.urls import reverse
+        return reverse('serve_document', args=[str(self.id)])
+
+    @property
+    def file_icon_class(self):
+        # Helper property to get a Font Awesome icon class based on file type
+        ext = os.path.splitext(self.original_filename)[1].lower()
+        if ext == '.pdf':
+            return 'fas fa-file-pdf text-danger'
+        elif ext in ['.doc', '.docx']:
+            return 'fas fa-file-word text-primary'
+        elif ext in ['.xls', '.xlsx', '.csv']:
+            return 'fas fa-file-excel text-success'
+        elif ext in ['.png', '.jpg', '.jpeg', '.gif']:
+            return 'fas fa-file-image text-info'
+        elif ext in ['.zip', '.rar', '.tar', '.gz']:
+            return 'fas fa-file-archive text-warning'
+        else:
+            return 'fas fa-file-alt text-secondary'
+
+    class Meta:
+        ordering = ['-upload_date']
+        indexes = [
+            models.Index(fields=['user', 'upload_date']),
+            models.Index(fields=['user', 'original_filename']),
+        ]

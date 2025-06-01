@@ -19,7 +19,7 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 
-from .models import Conversation, Message, Transaction, PendingTransaction, Customer, Vendor
+from .models import Conversation, Message, Transaction, PendingTransaction, Customer, Vendor, UploadedDocument
 from .serializers import (
     ConversationSerializer, 
     MessageSerializer, 
@@ -31,7 +31,7 @@ from .serializers import (
     VendorSerializer,
     TransactionCreateSerializer
 )
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse, Http404
 from .services.gemini_services import GeminiService
 from .services.sheets_services import GoogleSheetsService  # Re-enabled Google Sheets
 
@@ -334,7 +334,6 @@ import json
 from .models import Transaction, Customer, Vendor
 
 
-def analytics(request):
 @login_required
 def analytics(request):
     """Financial analytics dashboard page - data is fetched via API."""
@@ -420,12 +419,35 @@ def upload_document(request):
                 for chunk in file.chunks():
                     destination.write(chunk)
             logger.info("File saved successfully")
-            
+
+            # Create UploadedDocument record
+            if request.user.is_authenticated:
+                try:
+                    UploadedDocument.objects.create(
+                        user=request.user,
+                        original_filename=file.name,
+                        saved_filename=safe_name, # This is the uuid generated name
+                        file_path=save_path,
+                        file_size=file.size,
+                        content_type=file.content_type
+                    )
+                    logger.info(f"UploadedDocument record created for {file.name}")
+                except Exception as e:
+                    logger.error(f"Failed to create UploadedDocument record for {file.name}: {str(e)}")
+                    # Optionally, you might want to inform the user or delete the orphaned file
+                    # For now, just log the error. The main response will still indicate file save success.
+            else:
+                logger.warning(f"User not authenticated, cannot create UploadedDocument record for {file.name}")
+
+            # The JSON response should remain the same, confirming file save.
+            # The creation of the UploadedDocument record is an internal step.
             return JsonResponse({
-                'status': 'ok', 
-                'filename': file_name,
-                'saved_as': safe_name,
-                'path': save_path
+                'status': 'ok',
+                'filename': file.name, # Original filename
+                'saved_as': safe_name, # The unique name used on the server
+                'path': save_path,     # The full path on the server (for internal use)
+                'message_to_user': f"File '{file.name}' uploaded successfully. It will now be available in your documents list.", # Added user message
+                'is_html': False
             })
             
         except IOError as e:
@@ -440,6 +462,64 @@ def upload_document(request):
             status=500
         )
 
+
+@login_required
+def document_list_view(request):
+    """
+    View to list documents uploaded by the current user.
+    """
+    documents = UploadedDocument.objects.filter(user=request.user).order_by('-upload_date')
+    context = {
+        'title': 'My Documents',
+        'documents': documents
+    }
+    return render(request, 'documents.html', context)
+
+
+@login_required
+def serve_document_view(request, document_id):
+    """
+    Serves a document file to the user if they have permission.
+    """
+    document = get_object_or_404(UploadedDocument, id=document_id, user=request.user)
+
+    # Construct the full file path safely.
+    # It's assumed that document.file_path stores the absolute path
+    # or a path relative to a known root like settings.PRIVATE_FILE_STORAGE.
+    # For this example, let's assume document.file_path is the absolute path.
+    # If it's relative, you'd need:
+    # file_path = os.path.join(settings.PRIVATE_FILE_STORAGE, document.saved_filename)
+    # However, the model was defined to store the full file_path.
+
+    file_path = document.file_path
+
+    if not os.path.exists(file_path):
+        # This case should ideally not happen if records are managed correctly.
+        # It might indicate the file was moved or deleted from the filesystem
+        # without updating the database.
+        raise Http404("File does not exist on the server.")
+
+    try:
+        # Open the file in binary read mode
+        response = FileResponse(open(file_path, 'rb'), as_attachment=False, filename=document.original_filename)
+
+        # Set content type if known, otherwise FileResponse tries to guess
+        if document.content_type:
+            response['Content-Type'] = document.content_type
+
+        # Optional: Add Content-Disposition header to suggest filename to browser
+        # response['Content-Disposition'] = f'inline; filename="{document.original_filename}"'
+        # 'inline' tries to display in browser, 'attachment' forces download.
+        # FileResponse with as_attachment=False by default sets Content-Disposition to inline.
+        # If you always want to force download, set as_attachment=True.
+
+        return response
+    except FileNotFoundError:
+        raise Http404("File not found.")
+    except Exception as e:
+        # Log the exception e
+        # Consider a more user-friendly error page or message
+        raise Http404(f"Error serving file: {str(e)}")
 
     
 class ConversationView(APIView):

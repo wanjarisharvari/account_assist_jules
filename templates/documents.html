@@ -1,0 +1,80 @@
+{% extends "dashboard.html" %}
+{% load static %} {# Assuming you might use static files later, good practice to include #}
+{% load math_filters %} {# Or any other custom tags you might need from your app #}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h2 class="h3 mb-0 text-gray-800">My Documents</h2>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Uploaded Files</h6>
+        </div>
+        <div class="card-body">
+            {% if documents %}
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover" id="dataTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">Type</th>
+                                <th>Filename</th>
+                                <th>Size</th>
+                                <th>Upload Date</th>
+                                <th style="width: 120px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in documents %}
+                            <tr>
+                                <td class="text-center align-middle">
+                                    <i class="{{ doc.file_icon_class }}" style="font-size: 1.5rem;"></i>
+                                </td>
+                                <td class="align-middle">{{ doc.original_filename }}</td>
+                                <td class="align-middle">{{ doc.file_size|filesizeformat }}</td> {# Using a hypothetical filesizeformat filter #}
+                                <td class="align-middle">{{ doc.upload_date|date:"Y-m-d H:i" }}</td>
+                                <td class="align-middle">
+                                    <a href="{{ doc.get_download_url }}" class="btn btn-primary btn-sm" title="View/Download">
+                                        <i class="fas fa-download"></i> View
+                                    </a>
+                                    {# Add delete button later if needed #}
+                                    {# <a href="#" class="btn btn-danger btn-sm" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </a> #}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-open fa-3x text-gray-400 mb-3"></i>
+                    <p class="lead text-gray-700">You haven't uploaded any documents yet.</p>
+                    <p>You can upload documents through the chat interface.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# If you plan to use DataTables for sorting/pagination later: #}
+{# <link href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css" rel="stylesheet"> #}
+{# <script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script> #}
+{# <script src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js"></script> #}
+{# <script>
+    $(document).ready(function() {
+        $('#dataTable').DataTable({
+            "order": [[ 3, "desc" ]] // Default sort by upload date descending
+        });
+    });
+</script> #}
+
+{% endblock %}
+
+{% block page_specific_js %}
+{# Add any page-specific JavaScript here if needed #}
+{% endblock %}
