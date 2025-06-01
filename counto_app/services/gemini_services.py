@@ -419,8 +419,6 @@ class GeminiService:
         3. ALWAYS start responses with one of the specified tags
         4. Format data in a clear list format as shown above
         5. ALWAYS ask "Would you like me to record this [transaction/customer/vendor]?" after showing details
-        6. When the user says "yes" or "confirm" or "record it", respond with "[TRANSACTION/CUSTOMER/VENDOR]_CONFIRMED"
-        7. When the user says "no" or "cancel" or "don't record", respond with "[TRANSACTION/CUSTOMER/VENDOR]_CANCELLED"
         """
         
         # Combine relevant prompts based on intent type

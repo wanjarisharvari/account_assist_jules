@@ -18,6 +18,9 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+# IMPORTANT: Store all sensitive values in an .env file (e.g., API keys, database credentials).
+# Ensure that your .env file is included in .gitignore to prevent committing it to version control.
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -29,7 +32,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-default-key-change-this')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -91,11 +94,11 @@ WSGI_APPLICATION = "counto_project.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'Counto',
-        'USER': 'postgres',
-        'PASSWORD': 'sharvari123',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', 'Counto'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'sharvari123'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -178,14 +181,17 @@ SIMPLE_JWT = {
 
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+# Path to the Google Sheets credentials JSON file. Ensure this file is NOT committed to version control.
 GOOGLE_SHEETS_CREDENTIALS_FILE = os.getenv('GOOGLE_SHEETS_CREDENTIALS_FILE', 'macro-gadget-458708-s4-1ae6b980ffa5.json')
-GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID')
-GOOGLE_SHEETS_RANGE_NAME = os.getenv('GOOGLE_SHEETS_RANGE_NAME', 'Transactions!A2:H')
-
-# Google Sheets Configuration
-GOOGLE_SHEETS_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'macro-gadget-458708-s4-1ae6b980ffa5.json')
 GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID', '')
 GOOGLE_SHEETS_TRANSACTIONS_RANGE = os.getenv('GOOGLE_SHEETS_TRANSACTIONS_RANGE', 'Transactions!A2:K')
+# The following line regarding GOOGLE_SHEETS_RANGE_NAME seems redundant or possibly outdated.
+# I will remove it as the more specific range names (TRANSACTIONS, CUSTOMERS, VENDORS) are already defined.
+# GOOGLE_SHEETS_RANGE_NAME = os.getenv('GOOGLE_SHEETS_RANGE_NAME', 'Transactions!A2:H')
+
+# Google Sheets Configuration
+# The following line GOOGLE_SHEETS_CREDENTIALS_FILE is a duplicate and will be removed.
+# GOOGLE_SHEETS_CREDENTIALS_FILE = os.path.join(BASE_DIR, 'macro-gadget-458708-s4-1ae6b980ffa5.json')
 GOOGLE_SHEETS_CUSTOMERS_RANGE = os.getenv('GOOGLE_SHEETS_CUSTOMERS_RANGE', 'Customers!A2:F')
 GOOGLE_SHEETS_VENDORS_RANGE = os.getenv('GOOGLE_SHEETS_VENDORS_RANGE', 'Vendors!A2:F')
 
