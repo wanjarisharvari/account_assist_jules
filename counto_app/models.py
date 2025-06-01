@@ -14,9 +14,11 @@ class Conversation(models.Model):
         return f"Conversation {self.id} - {self.user.username}"
 
 class Message(models.Model):
+    USER = 'USER'
+    AI = 'AI'
     SENDER_CHOICES = [
-        ('USER', 'User'),
-        ('AI', 'AI')
+        (USER, 'User'),
+        (AI, 'AI'),
     ]
     
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
@@ -146,9 +148,11 @@ class Vendor(models.Model):
 
 class Transaction(models.Model):
     """Simplified transaction model - just records what happened"""
+    INCOME = 'INCOME'
+    EXPENSE = 'EXPENSE'
     TYPE_CHOICES = [
-        ('INCOME', 'Income'),
-        ('EXPENSE', 'Expense'),
+        (INCOME, 'Income'),
+        (EXPENSE, 'Expense'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
