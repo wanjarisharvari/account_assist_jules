@@ -421,13 +421,14 @@
                         <i class="fas fa-calendar-alt me-2"></i>Last 12 Months
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dateRangeButton">
-                        <li><a class="dropdown-item" href="#">Last 30 Days</a></li>
-                        <li><a class="dropdown-item" href="#">Last 3 Months</a></li>
-                        <li><a class="dropdown-item" href="#">Last 6 Months</a></li>
-                        <li><a class="dropdown-item active" href="#">Last 12 Months</a></li>
-                        <li><a class="dropdown-item" href="#">This Year</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#">Custom Range</a></li>
+                        <li><a class="dropdown-item" href="#" data-period="month">This Month</a></li>
+                        <li><a class="dropdown-item" href="#" data-period="last_month">Last Month</a></li>
+                        <li><a class="dropdown-item" href="#" data-period="last_3_months">Last 3 Months</a></li>
+                        <li><a class="dropdown-item active" href="#" data-period="last_6_months">Last 6 Months</a></li>
+                        <li><a class="dropdown-item" href="#" data-period="year">This Year</a></li>
+                        <!-- Custom Range might need more complex UI/logic, not covered by simple period fetch -->
+                        <!-- <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#">Custom Range</a></li> -->
                     </ul>
                 </div>
             </div>
@@ -439,7 +440,7 @@
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
                                     <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Income</div>
-                                    <div class="h5 mb-0 font-weight-bold">₹{{ summary.total_income|floatformat:2 }}</div>
+                                    <div class="h5 mb-0 font-weight-bold" id="totalIncome">₹0.00</div>
                                 </div>
                                 <div class="col-auto"><i class="fas fa-rupee-sign fa-2x text-gray-300"></i></div>
                             </div>
@@ -452,7 +453,7 @@
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
                                     <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Total Expenses</div>
-                                    <div class="h5 mb-0 font-weight-bold">₹{{ summary.total_expenses|floatformat:2 }}</div>
+                                    <div class="h5 mb-0 font-weight-bold" id="totalExpenses">₹0.00</div>
                                 </div>
                                 <div class="col-auto"><i class="fas fa-wallet fa-2x text-gray-300"></i></div>
                             </div>
@@ -465,7 +466,7 @@
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
                                     <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Net Balance</div>
-                                    <div class="h5 mb-0 font-weight-bold">₹{{ summary.net_balance|floatformat:2 }}</div>
+                                    <div class="h5 mb-0 font-weight-bold" id="netBalance">₹0.00</div>
                                 </div>
                                 <div class="col-auto"><i class="fas fa-balance-scale fa-2x text-gray-300"></i></div>
                             </div>
@@ -480,11 +481,11 @@
                                     <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Savings Rate</div>
                                     <div class="row no-gutters align-items-center">
                                         <div class="col-auto">
-                                            <div class="h5 mb-0 me-3 font-weight-bold">{{ summary.savings_rate }}%</div>
+                                            <div class="h5 mb-0 me-3 font-weight-bold" id="savingsRate">0%</div>
                                         </div>
                                         <div class="col">
                                             <div class="progress progress-sm">
-                                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ summary.savings_rate }}%" aria-valuenow="{{ summary.savings_rate }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                                <div class="progress-bar bg-info" role="progressbar" style="width: 0%" id="savingsRateProgressBar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -523,12 +524,8 @@
                         <div class="card-header"><h6 class="m-0">Expense Breakdown</h6></div>
                         <div class="card-body">
                             <div class="chart-pie"><canvas id="expensePieChart"></canvas></div>
-                            <div class="mt-4 text-center small">
-                                {% for cat in categories %}
-                                <span class="chart-legend-item">
-                                    <i class="fas fa-circle" style="color: {{ cat.color }}"></i> {{ cat.name }}
-                                </span>
-                                {% endfor %}
+                            <div class="mt-4 text-center small" id="expensePieChartLegend">
+                                <!-- Legend will be populated by JS -->
                             </div>
                         </div>
                     </div>
@@ -539,62 +536,37 @@
                 <div class="col-lg-6 mb-4">
                     <div class="card shadow">
                         <div class="card-header"><h6 class="m-0">Recent Transactions</h6></div>
-                        <div class="card-body p-0"> <div class="table-responsive">
+                        <div class="card-body p-0">
+                             <div class="table-responsive">
                                 <table class="table table-hover">
-                                    <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
-                                    <tbody>
-                                    {% for tx in recent_transactions %}
-                                    <tr>
-                                        <td>{{ tx.date|date:"M d, Y" }}</td>
-                                        <td>{{ tx.description|truncatechars:30 }}</td>
-                                        <td class="fw-bold {% if tx.transaction_type == 'income' %}text-success{% else %}text-danger{% endif %}">
-                                            ₹{{ tx.amount|floatformat:2 }}
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr><td colspan="3" class="text-center text-muted py-4">No recent transactions.</td></tr>
-                                    {% endfor %}
+                                    <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Type</th></tr></thead>
+                                    <tbody id="recentTransactionsTableBody">
+                                        <!-- JS will populate this -->
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-                        {% if recent_transactions %}
-                        <div class="card-footer text-center">
+                        <div class="card-footer text-center" id="recentTransactionsFooter" style="display:none;">
                              <a href="#" class="btn btn-light btn-sm w-100">View All Transactions</a>
                         </div>
-                        {% endif %}
                     </div>
                 </div>
                 <div class="col-lg-6 mb-4">
                     <div class="card shadow">
-                        <div class="card-header"><h6 class="m-0">Top Customers</h6></div>
+                        <div class="card-header"><h6 class="m-0">Top Customers (by Outstanding Balance)</h6></div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-hover">
                                     <thead><tr><th>Customer</th><th>Outstanding</th><th>Status</th></tr></thead>
-                                    <tbody>
-                                    {% for c in customer_data %}
-                                    <tr>
-                                        <td>{{ c.name|truncatechars:25 }}</td>
-                                        <td>₹{{ c.outstanding_balance|floatformat:2 }}</td>
-                                        <td>
-                                            <span class="badge {% if c.is_overdue %}bg-danger{% else %}bg-success{% endif %}">
-                                                {{ c.is_overdue|yesno:"Overdue,Current" }}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr><td colspan="3" class="text-center text-muted py-4">No customer data available.</td></tr>
-                                    {% endfor %}
+                                    <tbody id="topCustomersTableBody">
+                                        <!-- JS will populate this -->
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-                         {% if customer_data %}
-                        <div class="card-footer text-center">
+                        <div class="card-footer text-center" id="topCustomersFooter" style="display:none;">
                              <a href="#" class="btn btn-light btn-sm w-100">View All Customers</a>
                         </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -602,33 +574,20 @@
             <div class="row">
                  <div class="col-lg-6 mb-4">
                     <div class="card shadow">
-                        <div class="card-header"><h6 class="m-0">Vendor Payments</h6></div>
+                        <div class="card-header"><h6 class="m-0">Top Vendors (by Outstanding Balance)</h6></div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-hover">
-                                    <thead><tr><th>Vendor</th><th>Outstanding</th><th>Due Date</th></tr></thead>
-                                    <tbody>
-                                    {% for v in vendor_data %}
-                                    <tr>
-                                        <td>{{ v.name|truncatechars:25 }}</td>
-                                        <td>₹{{ v.outstanding_balance|floatformat:2 }}</td>
-                                        <td class="{% if v.is_overdue %}text-danger fw-bold{% else %}text-muted{% endif %}">
-                                            {{ v.due_date|date:"M d, Y" }}
-                                            {% if v.is_overdue %}<i class="fas fa-exclamation-circle ms-1"></i>{% endif %}
-                                        </td>
-                                    </tr>
-                                    {% empty %}
-                                    <tr><td colspan="3" class="text-center text-muted py-4">No vendor payments due.</td></tr>
-                                    {% endfor %}
+                                    <thead><tr><th>Vendor</th><th>Outstanding</th><th>Status</th></tr></thead>
+                                    <tbody id="topVendorsTableBody">
+                                        <!-- JS will populate this -->
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-                        {% if vendor_data %}
-                        <div class="card-footer text-center">
+                        <div class="card-footer text-center" id="topVendorsFooter" style="display:none;">
                              <a href="#" class="btn btn-light btn-sm w-100">View All Vendors</a>
                         </div>
-                        {% endif %}
                     </div>
                 </div>
                  <div class="col-lg-6 mb-4">
@@ -669,182 +628,213 @@
 
             // Chart.js Global Defaults
             Chart.defaults.font.family = 'Inter, sans-serif';
-            Chart.defaults.color = '#3E4E5B'; // text-secondary
+            Chart.defaults.color = 'var(--text-secondary)';
 
-            // Helper to format currency for tooltips and y-axes
-            const formatCurrency = (value) => '₹' + value.toLocaleString('en-IN');
+            // Helper to format currency
+            const formatCurrency = (value) => '₹' + parseFloat(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const formatPercentage = (value) => parseFloat(value).toFixed(1) + '%';
 
-            // Income vs Expenses Line Chart
-            const incomeExpensesCtx = document.getElementById('incomeExpensesChart')?.getContext('2d');
-            if (incomeExpensesCtx) {
-                new Chart(incomeExpensesCtx, {
-                    type: 'line',
-                    data: {
-                        labels: [{% for m in monthly_data %}"{{ m.month|date:'M Y' }}"{% if not forloop.last %}, {% endif %}{% endfor %}],
-                        datasets: [
-                            {
-                                label: "Income",
-                                lineTension: 0.3,
-                                backgroundColor: "rgba(58, 80, 107, 0.05)", // primary-color
-                                borderColor: "#3A506B", // primary-color
-                                pointRadius: 4,
-                                pointBackgroundColor: "#3A506B",
-                                pointBorderColor: "#FFFFFF",
-                                pointBorderWidth: 2,
-                                pointHoverRadius: 6,
-                                pointHoverBackgroundColor: "#3A506B",
-                                pointHoverBorderColor: "#FFFFFF",
-                                data: [{% for m in monthly_data %}{{ m.income|default:0 }},{% endfor %}],
-                                fill: true,
-                            },
-                            {
-                                label: "Expenses",
-                                lineTension: 0.3,
-                                backgroundColor: "rgba(220, 53, 69, 0.05)", // danger-color
-                                borderColor: "#DC3545", // danger-color
-                                pointRadius: 4,
-                                pointBackgroundColor: "#DC3545",
-                                pointBorderColor: "#FFFFFF",
-                                pointBorderWidth: 2,
-                                pointHoverRadius: 6,
-                                pointHoverBackgroundColor: "#DC3545",
-                                pointHoverBorderColor: "#FFFFFF",
-                                data: [{% for m in monthly_data %}{{ m.expenses|default:0 }},{% endfor %}],
-                                fill: true,
-                            }
-                        ],
-                    },
-                    options: {
-                        maintainAspectRatio: false,
-                        responsive: true,
-                        scales: {
-                            x: { grid: { display: false } },
-                            y: {
-                                ticks: { callback: formatCurrency },
-                                grid: { color: "#E0E7ED", borderDash: [2, 2] }
-                            }
-                        },
-                        plugins: {
-                            legend: { display: true, position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle'} },
-                            tooltip: {
-                                backgroundColor: "#FFFFFF", titleColor: "#1B262C", bodyColor: "#3E4E5B",
-                                borderColor: "#E0E7ED", borderWidth: 1, padding: 12,
-                                displayColors: true, boxPadding: 4,
-                                callbacks: { label: (context) => `${context.dataset.label}: ${formatCurrency(context.raw)}` }
-                            }
-                        },
-                        interaction: { intersect: false, mode: 'index' }
-                    }
-                });
+            let incomeExpensesChart, expensePieChart, cashFlowChart;
+
+            function initializeCharts() {
+                // Income vs Expenses Line Chart
+                const incomeExpensesCtx = document.getElementById('incomeExpensesChart')?.getContext('2d');
+                if (incomeExpensesCtx) {
+                    incomeExpensesChart = new Chart(incomeExpensesCtx, {
+                        type: 'line',
+                        data: { labels: [], datasets: [ { label: "Income", data: [], fill: true, borderColor: "var(--primary-color)", backgroundColor: "rgba(42, 82, 190, 0.1)", lineTension: 0.3, pointRadius: 4, pointBackgroundColor: "var(--primary-color)" }, { label: "Expenses", data: [], fill: true, borderColor: "var(--danger-color)", backgroundColor: "rgba(220, 53, 69, 0.1)", lineTension: 0.3, pointRadius: 4, pointBackgroundColor: "var(--danger-color)" } ] },
+                        options: { maintainAspectRatio: false, responsive: true, scales: { x: { grid: { display: false } }, y: { ticks: { callback: (val) => formatCurrency(val) }, grid: { color: "var(--border-color)", borderDash: [2, 2] } } }, plugins: { legend: { display: true, position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle'} }, tooltip: { backgroundColor: "var(--bg-card)", titleColor: "var(--text-primary)", bodyColor: "var(--text-secondary)", borderColor: "var(--border-color)", borderWidth: 1, padding: 12, displayColors: true, boxPadding: 4, callbacks: { label: (context) => `${context.dataset.label}: ${formatCurrency(context.raw)}` } } }, interaction: { intersect: false, mode: 'index' } }
+                    });
+                }
+
+                // Expense Breakdown Pie Chart
+                const expensePieCtx = document.getElementById('expensePieChart')?.getContext('2d');
+                if (expensePieCtx) {
+                    expensePieChart = new Chart(expensePieCtx, {
+                        type: 'doughnut',
+                        data: { labels: [], datasets: [{ data: [], backgroundColor: [], hoverBackgroundColor: [], borderColor: '#FFFFFF', borderWidth: 2 }] },
+                        options: { maintainAspectRatio: false, responsive: true, cutout: '70%', plugins: { legend: { display: false }, tooltip: { backgroundColor: "var(--bg-card)", titleColor: "var(--text-primary)", bodyColor: "var(--text-secondary)", borderColor: "var(--border-color)", borderWidth: 1, padding: 10, displayColors: false, callbacks: { label: (context) => `${context.label}: ${formatCurrency(context.raw)}` } } } }
+                    });
+                }
+
+                // Cash Flow Forecast Chart
+                const cashFlowCtx = document.getElementById('cashFlowChart')?.getContext('2d');
+                if (cashFlowCtx) {
+                    cashFlowChart = new Chart(cashFlowCtx, {
+                        type: 'bar',
+                        data: { labels: [], datasets: [ { label: "Expected Income", data: [], backgroundColor: "var(--primary-color)", stack: 'stack0' }, { label: "Expected Expenses", data: [], backgroundColor: "var(--danger-color)", stack: 'stack0' }, { label: "Projected Balance", data: [], borderColor: "var(--success-color)", backgroundColor: "rgba(40, 167, 69, 0.1)", type: 'line', tension: 0.3, fill: true, pointRadius: 4, pointBackgroundColor: "var(--success-color)" } ] },
+                        options: { maintainAspectRatio: false, responsive: true, scales: { x: { grid: { display: false }, stacked: true }, y: { ticks: { callback: (val) => formatCurrency(val) }, grid: { color: "var(--border-color)", borderDash: [2, 2] }, stacked: true } }, plugins: { legend: { display: false }, tooltip: { backgroundColor: "var(--bg-card)", titleColor: "var(--text-primary)", bodyColor: "var(--text-secondary)", borderColor: "var(--border-color)", borderWidth: 1, padding: 12, displayColors: true, boxPadding: 4, mode: 'index', intersect: false, callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label += ': '; } const value = context.dataset.label === "Expected Expenses" ? Math.abs(context.raw) : context.raw; label += formatCurrency(value); return label; } } } } }
+                    });
+                }
             }
 
-            // Expense Breakdown Pie Chart
-            const expensePieCtx = document.getElementById('expensePieChart')?.getContext('2d');
-            if (expensePieCtx) {
-                new Chart(expensePieCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: [{% for cat in categories %}"{{ cat.name }}"{% if not forloop.last %}, {% endif %}{% endfor %}],
-                        datasets: [{
-                            data: [{% for cat in categories %}{{ cat.amount|default:0 }},{% endfor %}],
-                            backgroundColor: [{% for cat in categories %}"{{ cat.color|default:'#3A506B' }}"{% if not forloop.last %}, {% endif %}{% endfor %}],
-                            hoverBackgroundColor: [{% for cat in categories %}"{{ cat.hover_color|default:'#2E4057' }}"{% if not forloop.last %}, {% endif %}{% endfor %}],
-                            borderColor: '#FFFFFF', // White border for segments
-                            borderWidth: 2,
-                        }],
-                    },
-                    options: {
-                        maintainAspectRatio: false,
-                        responsive: true,
-                        cutout: '70%',
-                        plugins: {
-                            legend: { display: false }, // Using custom legend below chart
-                            tooltip: {
-                                backgroundColor: "#FFFFFF", titleColor: "#1B262C", bodyColor: "#3E4E5B",
-                                borderColor: "#E0E7ED", borderWidth: 1, padding: 10,
-                                displayColors: false,
-                                callbacks: { label: (context) => `${context.label}: ${formatCurrency(context.raw)}` }
-                            }
-                        }
-                    }
-                });
+            function updateSummary(summaryData) {
+                if (!summaryData) return;
+                document.getElementById('totalIncome').textContent = formatCurrency(summaryData.total_income);
+                document.getElementById('totalExpenses').textContent = formatCurrency(summaryData.total_expenses);
+                document.getElementById('netBalance').textContent = formatCurrency(summaryData.net_balance);
+                document.getElementById('savingsRate').textContent = formatPercentage(summaryData.savings_rate);
+                const savingsRateBar = document.getElementById('savingsRateProgressBar');
+                if (savingsRateBar) {
+                    savingsRateBar.style.width = `${summaryData.savings_rate}%`;
+                    savingsRateBar.setAttribute('aria-valuenow', summaryData.savings_rate);
+                }
             }
 
-            // Cash Flow Forecast Chart
-            const cashFlowCtx = document.getElementById('cashFlowChart')?.getContext('2d');
-            if (cashFlowCtx) {
-                 // Dummy data if not provided by template (replace with your actual data structure)
-                const cashFlowData = {
-                    labels: ['Current', 'Next Month', 'In 2 Months', 'In 3 Months'],
-                    income: [{{ cash_flow_forecast.income.0|default:25000 }}, {{ cash_flow_forecast.income.1|default:28000 }}, {{ cash_flow_forecast.income.2|default:30000 }}, {{ cash_flow_forecast.income.3|default:32000 }}],
-                    expenses: [{{ cash_flow_forecast.expenses.0|default:18000 }}, {{ cash_flow_forecast.expenses.1|default:20000 }}, {{ cash_flow_forecast.expenses.2|default:22000 }}, {{ cash_flow_forecast.expenses.3|default:24000 }}],
-                    balance: [{{ cash_flow_forecast.balance.0|default:7000 }}, {{ cash_flow_forecast.balance.1|default:8000 }}, {{ cash_flow_forecast.balance.2|default:8000 }}, {{ cash_flow_forecast.balance.3|default:8000 }}]
-                };
+            function updateCharts(data) {
+                if (!data) return;
+                // Income vs Expenses Chart
+                if (incomeExpensesChart && data.monthly_data) {
+                    incomeExpensesChart.data.labels = data.monthly_data.labels;
+                    incomeExpensesChart.data.datasets[0].data = data.monthly_data.income;
+                    incomeExpensesChart.data.datasets[1].data = data.monthly_data.expenses;
+                    incomeExpensesChart.update();
+                }
 
-                new Chart(cashFlowCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: cashFlowData.labels,
-                        datasets: [
-                            {
-                                label: "Expected Income",
-                                backgroundColor: "#3A506B", // primary-color
-                                data: cashFlowData.income,
-                                stack: 'stack0',
-                            },
-                            {
-                                label: "Expected Expenses",
-                                backgroundColor: "#DC3545", // danger-color
-                                data: cashFlowData.expenses.map(e => -e), // Show as negative for stacking idea or handle differently
-                                stack: 'stack0',
-                            },
-                            {
-                                label: "Projected Balance",
-                                borderColor: "#28A745", // success-color
-                                backgroundColor: "rgba(40, 167, 69, 0.1)",
-                                data: cashFlowData.balance,
-                                type: 'line',
-                                tension: 0.3,
-                                fill: true,
-                                pointRadius: 4,
-                                pointBackgroundColor: "#28A745",
-                                pointBorderColor: "#FFFFFF",
-                                pointBorderWidth: 2,
-                            }
-                        ],
-                    },
-                    options: {
-                        maintainAspectRatio: false,
-                        responsive: true,
-                        scales: {
-                            x: { grid: { display: false }, stacked: true },
-                            y: {
-                                ticks: { callback: formatCurrency },
-                                grid: { color: "#E0E7ED", borderDash: [2, 2] },
-                                stacked: true
-                            }
-                        },
-                        plugins: {
-                            legend: { display: false }, // Using custom legend
-                            tooltip: {
-                                backgroundColor: "#FFFFFF", titleColor: "#1B262C", bodyColor: "#3E4E5B",
-                                borderColor: "#E0E7ED", borderWidth: 1, padding: 12,
-                                displayColors: true, boxPadding: 4, mode: 'index', intersect: false,
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.dataset.label || '';
-                                        if (label) { label += ': '; }
-                                        // For expenses, show positive value in tooltip despite negative data for stacking
-                                        const value = context.dataset.label === "Expected Expenses" ? Math.abs(context.raw) : context.raw;
-                                        label += formatCurrency(value);
-                                        return label;
-                                    }
-                                }
-                            }
-                        }
+                // Expense Breakdown Pie Chart
+                if (expensePieChart && data.categories && data.category_totals && data.category_colors) {
+                    expensePieChart.data.labels = data.categories;
+                    expensePieChart.data.datasets[0].data = data.category_totals;
+                    expensePieChart.data.datasets[0].backgroundColor = data.category_colors;
+                    // You might need to generate hover colors if not provided or use Chart.js defaults
+                    expensePieChart.data.datasets[0].hoverBackgroundColor = data.category_colors.map(color => Chart.helpers.color(color).saturate(0.2).darken(0.1).rgbString());
+                    expensePieChart.update();
+
+                    // Update custom legend
+                    const legendContainer = document.getElementById('expensePieChartLegend');
+                    if (legendContainer) {
+                        legendContainer.innerHTML = ''; // Clear old legend
+                        data.categories.forEach((label, index) => {
+                            const color = data.category_colors[index % data.category_colors.length];
+                            const legendItem = `<span class="chart-legend-item"><i class="fas fa-circle" style="color: ${color}"></i> ${label}</span>`;
+                            legendContainer.innerHTML += legendItem;
+                        });
                     }
-                });
+                }
+
+                // Cash Flow Forecast Chart
+                if (cashFlowChart && data.cash_flow_forecast) {
+                    cashFlowChart.data.labels = data.cash_flow_forecast.labels;
+                    cashFlowChart.data.datasets[0].data = data.cash_flow_forecast.income;
+                    cashFlowChart.data.datasets[1].data = data.cash_flow_forecast.expenses.map(e => -Math.abs(e)); // ensure expenses are negative for stacking display
+                    cashFlowChart.data.datasets[2].data = data.cash_flow_forecast.balance;
+                    cashFlowChart.update();
+                }
             }
+
+            function updateTables(data) {
+                if (!data) return;
+
+                // Recent Transactions
+                const recentTxTableBody = document.getElementById('recentTransactionsTableBody');
+                if (recentTxTableBody && data.recent_transactions) {
+                    recentTxTableBody.innerHTML = ''; // Clear existing
+                    if (data.recent_transactions.length > 0) {
+                        data.recent_transactions.forEach(tx => {
+                            const row = `<tr>
+                                <td>${new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                                <td>${tx.description.substring(0,30)}${tx.description.length > 30 ? '...' : ''}</td>
+                                <td class="fw-bold ${tx.type === 'income' ? 'text-success' : 'text-danger'}">${formatCurrency(tx.amount)}</td>
+                                <td><span class="badge ${tx.type === 'income' ? 'badge-income' : 'badge-expense'}">${tx.type}</span></td>
+                            </tr>`;
+                            recentTxTableBody.innerHTML += row;
+                        });
+                        document.getElementById('recentTransactionsFooter').style.display = 'block';
+                    } else {
+                        recentTxTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No recent transactions.</td></tr>';
+                        document.getElementById('recentTransactionsFooter').style.display = 'none';
+                    }
+                }
+
+                // Top Customers
+                const topCustomersTableBody = document.getElementById('topCustomersTableBody');
+                if (topCustomersTableBody && data.customer_data) {
+                    topCustomersTableBody.innerHTML = '';
+                    if (data.customer_data.length > 0) {
+                        data.customer_data.forEach(c => {
+                            const row = `<tr>
+                                <td>${c.name.substring(0,25)}${c.name.length > 25 ? '...' : ''}</td>
+                                <td>${formatCurrency(c.outstanding_balance)}</td>
+                                <td><span class="badge ${c.is_overdue ? 'bg-danger' : 'bg-success'}">${c.is_overdue ? "Overdue" : "Current"}</span></td>
+                            </tr>`;
+                            topCustomersTableBody.innerHTML += row;
+                        });
+                        document.getElementById('topCustomersFooter').style.display = 'block';
+                    } else {
+                         topCustomersTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No customer data available.</td></tr>';
+                         document.getElementById('topCustomersFooter').style.display = 'none';
+                    }
+                }
+
+                // Top Vendors
+                const topVendorsTableBody = document.getElementById('topVendorsTableBody');
+                if (topVendorsTableBody && data.vendor_data) {
+                    topVendorsTableBody.innerHTML = '';
+                     if (data.vendor_data.length > 0) {
+                        data.vendor_data.forEach(v => {
+                            const row = `<tr>
+                                <td>${v.name.substring(0,25)}${v.name.length > 25 ? '...' : ''}</td>
+                                <td>${formatCurrency(v.outstanding_balance)}</td>
+                                <td><span class="badge ${v.is_overdue ? 'bg-danger' : 'text-muted'}">${v.is_overdue ? "Overdue" : "Up to date"}</span></td>
+                            </tr>`; // Using text-muted for non-overdue vendors
+                            topVendorsTableBody.innerHTML += row;
+                        });
+                        document.getElementById('topVendorsFooter').style.display = 'block';
+                    } else {
+                        topVendorsTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">No vendor data available.</td></tr>';
+                        document.getElementById('topVendorsFooter').style.display = 'none';
+                    }
+                }
+            }
+
+            async function fetchAnalyticsData(period = 'year') {
+                // Add a loading indicator if you have one
+                // document.getElementById('loadingIndicator').style.display = 'block';
+                try {
+                    const response = await fetch(`/api/analytics-data/?period=${period}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+
+                    updateSummary(data.summary);
+                    updateCharts(data);
+                    updateTables(data);
+
+                } catch (error) {
+                    console.error('Error fetching analytics data:', error);
+                    // Display an error message to the user on the page
+                    // document.getElementById('errorMessage').textContent = 'Failed to load data. Please try again.';
+                } finally {
+                    // Hide loading indicator
+                    // document.getElementById('loadingIndicator').style.display = 'none';
+                }
+            }
+
+            // Event listener for date range dropdown
+            const dateRangeButton = document.getElementById('dateRangeButton');
+            const dropdownItems = document.querySelectorAll('.dropdown-menu a[data-period]');
+            dropdownItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const selectedPeriod = this.getAttribute('data-period');
+                    const selectedText = this.textContent;
+
+                    if (dateRangeButton) {
+                        dateRangeButton.innerHTML = `<i class="fas fa-calendar-alt me-2"></i>${selectedText}`;
+                    }
+
+                    // Remove active class from all items
+                    dropdownItems.forEach(i => i.classList.remove('active'));
+                    // Add active class to the clicked item
+                    this.classList.add('active');
+
+                    fetchAnalyticsData(selectedPeriod);
+                });
+            });
+
+            initializeCharts(); // Initialize chart structures
+            fetchAnalyticsData('last_6_months'); // Initial data load for 'Last 6 Months' as it's default active
         });
     </script>
 </body>
