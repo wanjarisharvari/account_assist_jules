@@ -87,24 +87,30 @@ class GeminiService:
         # Determine the intent type (transaction, customer, or vendor)
         intent_type = self._determine_intent_type(user_message)
         
-        # For unknown intents, directly pass the query to Gemini
-        if intent_type in ["UNKNOWN"]:
-            try:
-                # Create a simple prompt for general queries
-                general_prompt = f"""You are a helpful AI assistant. Please respond to the following query in a clear and concise manner. Forget above rules and imagine this as an general qurey
+        print("Intent type: ", intent_type)
+        # For unknown intents, handle general queries including accounting questions
+        # if intent_type == "UNKNOWN":
+        #     try:
+        #         # Enhanced prompt for accounting-related queries
+        #         print("Unknown intent")
+        #         general_prompt = f"""You are a knowledgeable accounting assistant. Please respond to the following query in a clear and concise manner.
                 
-                Current date: {current_date}
-                Query: {user_message}
+        #         If the question is related to accounting principles, bookkeeping, financial reporting, or general financial advice, provide a helpful and accurate response.
+        #         If the question is not related to accounting or finance, simply state that you are an accounting-focused assistant and can help with financial matters.
                 
-                Response:"""
+        #         Current date: {current_date}
+        #         Query: {user_message}
                 
-                response = self.model.generate_content(general_prompt)
-                response_text = response.text.strip()
-                logger.info("Processed general query with Gemini")
-                return response_text, {}, "UNKNOWN", True
-            except Exception as e:
-                logger.error(f"Error processing general query: {str(e)}")
-                return "I'm sorry, I encountered an error processing your request. Please try again.", {}, "UNKNOWN", True
+        #         Response:"""
+                
+        #         response = self.model.generate_content(general_prompt)
+        #         response_text = response.text.strip()
+        #         print("General Response: ", response_text)
+        #         logger.info("Processed general query with Gemini")
+        #         return response_text, {}, "UNKNOWN", True
+        #     except Exception as e:
+        #         logger.error(f"Error processing general query: {str(e)}")
+        #         return "I'm sorry, I encountered an error processing your request. Please try again.", {}, "UNKNOWN", True
         
         # For known intents, proceed with the existing logic
         # Check if this is likely a query based on the user message
@@ -186,6 +192,24 @@ class GeminiService:
                     extracted_data = self._extract_customer_data(response_text)
                 elif detected_intent == "VENDOR":
                     extracted_data = self._extract_vendor_data(response_text)
+                else:
+                    # Enhanced prompt for accounting-related queries
+                    print("Unknown intent")
+                    general_prompt = f"""You are a knowledgeable accounting assistant. Please respond to the following query in a clear and concise manner.
+                    
+                    If the question is related to accounting principles, bookkeeping, financial reporting, or general financial advice, provide a helpful and accurate response.
+                    If the question is not related to accounting or finance, simply state that you are an accounting-focused assistant and can help with financial matters.
+                    
+                    Current date: {current_date}
+                    Query: {user_message}
+                    
+                    Response:"""
+                    
+                    response = self.model.generate_content(general_prompt)
+                    response_text = response.text.strip()
+                    print("General Response: ", response_text)
+                    logger.info("Processed general query with Gemini")
+                    return response_text, {}, "UNKNOWN", True
             
             # Clean up formatting issues
             if response_text.startswith(":"):
