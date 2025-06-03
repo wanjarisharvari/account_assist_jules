@@ -334,7 +334,6 @@ import json
 from .models import Transaction, Customer, Vendor
 
 
-def analytics(request):
 @login_required
 def analytics(request):
     """Financial analytics dashboard page - data is fetched via API."""
