@@ -333,6 +333,9 @@
                     <li class="nav-item">
                         <a class="nav-link {% if 'dashboard' in request.path or 'analytics' in request.path %}active{% endif %}" href="{% url 'dashboard' %}">Dashboard</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'summary' in request.path %}active{% endif %}" href="{% url 'summary' %}"><i class="fas fa-lightbulb me-1"></i>AI Insights</a>
+                    </li>
                     {% if user.is_staff %}
                     <li class="nav-item">
                         <a class="nav-link" href="/admin/">Admin</a>
