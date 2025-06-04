@@ -87,7 +87,30 @@ class GeminiService:
         # Determine the intent type (transaction, customer, or vendor)
         intent_type = self._determine_intent_type(user_message)
         
-        logger.info(f"Determined intent type: {intent_type}")
+        print("Intent type: ", intent_type)
+        # For unknown intents, handle general queries including accounting questions
+        # if intent_type == "UNKNOWN":
+        #     try:
+        #         # Enhanced prompt for accounting-related queries
+        #         print("Unknown intent")
+        #         general_prompt = f"""You are a knowledgeable accounting assistant. Please respond to the following query in a clear and concise manner.
+                
+        #         If the question is related to accounting principles, bookkeeping, financial reporting, or general financial advice, provide a helpful and accurate response.
+        #         If the question is not related to accounting or finance, simply state that you are an accounting-focused assistant and can help with financial matters.
+                
+        #         Current date: {current_date}
+        #         Query: {user_message}
+                
+        #         Response:"""
+                
+        #         response = self.model.generate_content(general_prompt)
+        #         response_text = response.text.strip()
+        #         print("General Response: ", response_text)
+        #         logger.info("Processed general query with Gemini")
+        #         return response_text, {}, "UNKNOWN", True
+        #     except Exception as e:
+        #         logger.error(f"Error processing general query: {str(e)}")
+        #         return "I'm sorry, I encountered an error processing your request. Please try again.", {}, "UNKNOWN", True
         
         # For known intents, proceed with the existing logic
         # Check if this is likely a query based on the user message
@@ -160,78 +183,40 @@ class GeminiService:
             logger.info(f"Response type - Intent: {detected_intent}, Query: {is_query}")
             
             extracted_data = {}
-            user_facing_response_text = response_text # Default for queries or if JSON parsing fails
-
-            if not is_query and detected_intent != "UNKNOWN":
-                try:
-                    # Isolate JSON block and confirmation question
-                    json_start_index = response_text.find('{')
-                    json_end_index = response_text.rfind('}')
+            
+            # Extract data if this is a data entry
+            if not is_query:
+                if detected_intent == "TRANSACTION":
+                    extracted_data = self._extract_transaction_data(response_text)
+                elif detected_intent == "CUSTOMER":
+                    extracted_data = self._extract_customer_data(response_text)
+                elif detected_intent == "VENDOR":
+                    extracted_data = self._extract_vendor_data(response_text)
+                else:
+                    # Enhanced prompt for accounting-related queries
+                    print("Unknown intent")
+                    general_prompt = f"""You are a knowledgeable accounting assistant. Please respond to the following query in a clear and concise manner.
                     
-                    if json_start_index != -1 and json_end_index != -1 and json_end_index > json_start_index:
-                        json_string = response_text[json_start_index : json_end_index+1]
-                        confirmation_question = response_text[json_end_index+1:].strip()
-
-                        if not confirmation_question: # If Gemini didn't append the question
-                             confirmation_question = f"Would you like me to record this {detected_intent.lower()}?"
-
-                        user_facing_response_text = confirmation_question # This is what user sees
-
-                        logger.info(f"Attempting to parse JSON: {json_string}")
-                        if detected_intent == "TRANSACTION":
-                            extracted_data = self._extract_transaction_data(json_string)
-                        elif detected_intent == "CUSTOMER":
-                            extracted_data = self._extract_customer_data(json_string)
-                        elif detected_intent == "VENDOR":
-                            extracted_data = self._extract_vendor_data(json_string)
-
-                        if not extracted_data: # If JSON parsing failed in _extract methods
-                            user_facing_response_text = "I found some data, but had trouble understanding all of it. Could you clarify?"
-                            # Keep detected_intent so UI might still know it's a data entry task.
-                    else:
-                        logger.warning(f"Could not find valid JSON block in response for {tag}: {response_text}")
-                        user_facing_response_text = "I found some data, but had trouble formatting it. Could you try phrasing that differently?"
-                        # Reset detected_intent if we can't parse JSON, so it's treated as general response.
-                        # detected_intent = "UNKNOWN" # Or handle appropriately
-                except Exception as e:
-                    logger.error(f"Error processing data entry response: {e}. Response: {response_text}")
-                    user_facing_response_text = "I had some trouble processing that request. Please try again."
-                    extracted_data = {} # Clear any partial data
-                    # detected_intent = "UNKNOWN" # Or handle appropriately
-            elif detected_intent == "UNKNOWN" and not is_query :
-                 # This case is if Gemini returns UNKNOWN but it wasn't identified as a query.
-                 # Could be a general statement not matching any data entry or query patterns.
-                 # The original response_text (after stripping any tag) is probably best here.
-                 pass
-
-
-            # If after all processing, detected_intent is UNKNOWN and it's not a query,
-            # it might be a general statement that doesn't fit other categories.
-            # Fallback to a general accounting query handler or a polite "I can't help with that".
-            if detected_intent == "UNKNOWN" and not is_likely_query: # is_likely_query checks original user_message
-                logger.info(f"Handling as general unknown statement: {user_message}")
-                # This part might need to be refined based on desired behavior for truly unhandled statements.
-                # For now, we let user_facing_response_text be what Gemini returned (after tag stripping).
-                # If response_text was a failed JSON parse, it might be an error message.
-                # If it was from the initial "UNKNOWN" block, it would be Gemini's direct answer.
-                # This path is a bit convoluted now. Let's ensure user_facing_response_text is reasonable.
-                if not user_facing_response_text.strip() or user_facing_response_text == response_text : # if it hasn't been set to a confirmation Q
-                     general_prompt = f"""You are a knowledgeable accounting assistant. Please respond to the following query in a clear and concise manner.
-    Current date: {current_date}
-    Query: {user_message}
-    Response:"""
-                     try:
-                        gen_response = self.model.generate_content(general_prompt)
-                        user_facing_response_text = gen_response.text.strip()
-                        logger.info(f"Processed as general query with Gemini: {user_facing_response_text}")
-                     except Exception as e:
-                        logger.error(f"Error processing fallback general query: {str(e)}")
-                        user_facing_response_text = "I'm sorry, I encountered an error processing your request. Please try again."
-
-
-            logger.info(f"Final response to user: {user_facing_response_text}")
-            logger.info(f"Extracted data: {extracted_data}")
-            return user_facing_response_text, extracted_data, detected_intent, is_query
+                    If the question is related to accounting principles, bookkeeping, financial reporting, or general financial advice, provide a helpful and accurate response.
+                    If the question is not related to accounting or finance, simply state that you are an accounting-focused assistant and can help with financial matters.
+                    
+                    Current date: {current_date}
+                    Query: {user_message}
+                    
+                    Response:"""
+                    
+                    response = self.model.generate_content(general_prompt)
+                    response_text = response.text.strip()
+                    print("General Response: ", response_text)
+                    logger.info("Processed general query with Gemini")
+                    return response_text, {}, "UNKNOWN", True
+            
+            # Clean up formatting issues
+            if response_text.startswith(":"):
+                response_text = response_text[1:].strip()
+            
+            print("response_text", response_text)
+            return response_text, extracted_data, detected_intent, is_query
         except Exception as e:
             logger.error(f"Error in Gemini processing: {str(e)}")
             return f"Sorry, there was an error processing your request: {str(e)}", {}, "UNKNOWN", False
@@ -309,91 +294,73 @@ class GeminiService:
         
         transaction_prompt = f"""
         FUNCTION 1: TRANSACTION DATA EXTRACTION
-        When users mention expenses or income, respond with "DATA_ENTRY_TRANSACTION:" at the start, followed by a valid JSON string, and then the confirmation question.
-
-        Example User Input: "I spent 500 on groceries for my business from 'Big Bazaar' using UPI, ref 123."
-        Example AI Response:
-        DATA_ENTRY_TRANSACTION: {
-          "date": "{current_date}",
-          "description": "groceries for my business",
-          "category": "Groceries",
-          "amount": 500.00,
-          "transaction_type": "Expense",
-          "payment_method": "UPI",
-          "reference_number": "123",
-          "party_name": "Big Bazaar"
-        }
-        Would you like me to record this transaction?
-
-        Example User Input: "Received 2000 for freelance work from John Doe via bank transfer."
-        Example AI Response:
-        DATA_ENTRY_TRANSACTION: {
-          "date": "{current_date}",
-          "description": "freelance work",
-          "category": "Income",
-          "amount": 2000.00,
-          "transaction_type": "Income",
-          "payment_method": "Bank Transfer",
-          "reference_number": null,
-          "party_name": "John Doe"
-        }
-        Would you like me to record this transaction?
-
-        JSON fields for TRANSACTIONS:
-        - "date": String, "YYYY-MM-DD" format (use {current_date})
-        - "description": String, what was purchased or income source.
-        - "category": String, e.g., Food, Rent, Salary, Business.
-        - "amount": Float, numeric value of the transaction.
-        - "transaction_type": String, either "Expense" or "Income".
-        - "payment_method": String, e.g., Cash, Card, UPI, Bank Transfer.
-        - "reference_number": String or null, optional.
-        - "party_name": String or null, the name of the customer (for Income) or vendor (for Expense).
+        When users mention expenses or income, respond with "DATA_ENTRY_TRANSACTION" at the start, followed by extracted details.
+        
+        Examples of transaction mentions:
+        - "I spent 500 on groceries"
+        - "paid 1000 for rent"
+        - "received 5000 from client XYZ"
+        - "record an expense of 500 for cogs"
+        
+        For ALL expense or spending mentions, ALWAYS extract and display this data:
+        Date: {current_date} (today's actual date)
+        Description: [What was purchased]
+        Category: [Food, Rent, Business, etc.]
+        Amount: [The number mentioned]
+        Type: Expense
+        Payment Method: [Cash, Card, UPI, Bank Transfer, etc.]
+        Reference Number: [Optional]
+        Vendor: [Who received the payment]
+        Status: [PENDING, PARTIAL, PAID] (default: PAID)
+        Expected Amount: [Optional - if different from paid amount]
+        Paid Amount: [The actual amount paid]
+        
+        For income transactions, ALWAYS extract:
+        Date: {current_date} (today's actual date)
+        Description: [What the payment was for]
+        Category: [Salary, Business Income, Gift, etc.]
+        Amount: [The number mentioned]
+        Type: Income
+        Payment Method: [Cash, Card, UPI, Bank Transfer, etc.]
+        Reference Number: [Optional]
+        Customer: [Who sent the payment]
+        Status: [PENDING, PARTIAL, PAID] (default: PAID)
+        Expected Amount: [Optional - if different from paid amount]
+        Paid Amount: [The actual amount received]
         """
         
         customer_prompt = """
         FUNCTION 2: CUSTOMER DATA EXTRACTION
-        When users mention adding or updating customer information, respond with "DATA_ENTRY_CUSTOMER:" at the start, followed by a valid JSON string, and then the confirmation question.
-
-        Example User Input: "Add a new customer ABC Corp, email contact@abccorp.com, phone 1234567890, GST ID ABC123XYZ, address 1 Main St"
-        Example AI Response:
-        DATA_ENTRY_CUSTOMER: {
-          "name": "ABC Corp",
-          "email": "contact@abccorp.com",
-          "phone": "1234567890",
-          "gst_number": "ABC123XYZ",
-          "address": "1 Main St"
-        }
-        Would you like me to record this customer?
-
-        JSON fields for CUSTOMERS:
-        - "name": String, Customer's name.
-        - "email": String or null, Customer's email.
-        - "phone": String or null, Customer's phone number.
-        - "gst_number": String or null, Customer's GST number.
-        - "address": String or null, Customer's address.
+        When users mention adding or updating customer information, respond with "DATA_ENTRY_CUSTOMER" at the start.
+        
+        Examples of customer mentions:
+        - "Add a new customer named ABC Corp"
+        - "Create customer record for John Doe"
+        - "Update customer XYZ's details"
+        
+        For ALL customer mentions, ALWAYS extract and display this data:
+        Name: [Customer name]
+        Email: [Customer email, if mentioned]
+        Phone: [Customer phone, if mentioned]
+        GST Number: [Customer GST number, if mentioned]
+        Address: [Customer address, if mentioned]
         """
         
         vendor_prompt = """
         FUNCTION 3: VENDOR DATA EXTRACTION
-        When users mention adding or updating vendor information, respond with "DATA_ENTRY_VENDOR:" at the start, followed by a valid JSON string, and then the confirmation question.
-
-        Example User Input: "New vendor: XYZ Supplies, email is support@xyz.com, phone 9876543210."
-        Example AI Response:
-        DATA_ENTRY_VENDOR: {
-          "name": "XYZ Supplies",
-          "email": "support@xyz.com",
-          "phone": "9876543210",
-          "gst_number": null,
-          "address": null
-        }
-        Would you like me to record this vendor?
-
-        JSON fields for VENDORS:
-        - "name": String, Vendor's name.
-        - "email": String or null, Vendor's email.
-        - "phone": String or null, Vendor's phone number.
-        - "gst_number": String or null, Vendor's GST number.
-        - "address": String or null, Vendor's address.
+        When users mention adding or updating vendor information, respond with "DATA_ENTRY_VENDOR" at the start.
+        
+        Examples of vendor mentions:
+        - "Add a new vendor named ABC Supplies"
+        - "Create vendor record for Smith & Co"
+        - "Update vendor XYZ's details"
+        
+        For ALL vendor mentions, ALWAYS extract and display this data:
+        Name: [Vendor name]
+        Email: [Vendor email, if mentioned]
+        Phone: [Vendor phone, if mentioned]
+        GST Number: [Vendor GST number, if mentioned]
+        Address: [Vendor address, if mentioned]
         """
         
         query_prompt = """
@@ -447,12 +414,13 @@ class GeminiService:
         
         critical_instructions = """
         CRITICAL INSTRUCTIONS:
-        1. ALWAYS treat user mentions as real data they want to record in the app.
-        2. NEVER explain how accounting works - users are using you as a financial recording tool.
-        3. ALWAYS start responses with one of the specified DATA_ENTRY or QUERY tags.
-        4. For DATA_ENTRY tasks, the response MUST be the TAG, followed by a COLON, a SPACE, then a VALID JSON string containing the extracted data, and NOTHING ELSE before the JSON.
-        5. AFTER the JSON string for DATA_ENTRY tasks, ALWAYS ask the confirmation question: "Would you like me to record this [transaction/customer/vendor]?" on a new line.
-        6. Ensure the JSON is correctly formatted (keys and strings in double quotes, numbers as numbers, null for missing optional values).
+        1. ALWAYS treat user mentions as real data they want to record in the app
+        2. NEVER explain how accounting works - users are using you as a financial recording tool
+        3. ALWAYS start responses with one of the specified tags
+        4. Format data in a clear list format as shown above
+        5. ALWAYS ask "Would you like me to record this [transaction/customer/vendor]?" after showing details
+        6. When the user says "yes" or "confirm" or "record it", respond with "[TRANSACTION/CUSTOMER/VENDOR]_CONFIRMED"
+        7. When the user says "no" or "cancel" or "don't record", respond with "[TRANSACTION/CUSTOMER/VENDOR]_CANCELLED"
         """
         
         # Combine relevant prompts based on intent type
@@ -544,57 +512,165 @@ class GeminiService:
         
         return data_str
     
-    def _extract_transaction_data(self, json_string: str) -> Dict[str, Any]:
-        """Extract transaction data from a JSON string"""
-        try:
-            data = json.loads(json_string)
-            # Basic validation or mapping if needed, e.g., ensuring 'amount' is float
-            if 'amount' in data and isinstance(data['amount'], (str, int, float)):
-                try:
-                    data['amount'] = float(data['amount'])
-                except ValueError:
-                    logger.warning(f"Could not convert amount '{data['amount']}' to float. Setting to 0.0.")
-                    data['amount'] = 0.0
-            elif 'amount' not in data: # Ensure amount field exists
-                 data['amount'] = 0.0
+    def _extract_transaction_data(self, response_text: str) -> Dict[str, Any]:
+        """Extract transaction data from the AI response"""
+        def safe_float_convert(value):
+            """Safely convert string to float, handling various formats and optional values"""
+            if not value or value.lower() in ['', 'optional', '[optional]']:
+                return None
+            try:
+                # Remove any non-numeric characters except decimal point and minus
+                clean_value = ''.join(c for c in str(value) if c.isdigit() or c in '.-')
+                return float(clean_value) if clean_value else None
+            except (ValueError, TypeError):
+                return None
+        
+        print("Extracting transaction data from response using gemini")
+        extracted_data = {
+            'date': datetime.now().strftime('%Y-%m-%d'),  # Always use current date
+            'description': 'No description',
+            'category': 'Uncategorized',
+            'transaction_type': 'EXPENSE',  # Default to expense
+            'amount': None,
+            'customer': None,
+            'vendor': None,
+            'payment_method': 'Cash',  # Default payment method
+            'reference_number': None,
+            'notes': None
+        }
+        
+        # Patterns to extract data from response
+        patterns = {
+            'date': ['Date:', 'Date :', 'DATE:'],
+            'description': ['Description:', 'Description :', 'DESC:'],
+            'category': ['Category:', 'Category :', 'CAT:'],
+            'transaction_type': ['Type:', 'Type :', 'Transaction Type:'],
+            'amount': ['Amount:', 'Amount :', 'AMT:', 'Paid Amount:'],
+            'customer': ['Customer:', 'Customer :', 'Client:'],
+            'vendor': ['Vendor:', 'Vendor :', 'Supplier:', 'Paid to:'],
+            'payment_method': ['Payment Method:', 'Payment :', 'Method:'],
+            'reference_number': ['Reference:', 'Ref No:', 'Reference Number:'],
+            'notes': ['Notes:', 'Note:', 'Comments:']
+        }
+        
+        # Extract data using patterns
+        lines = response_text.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            for field, field_patterns in patterns.items():
+                for pattern in field_patterns:
+                    if line.startswith(pattern):
+                        value = line[len(pattern):].strip()
+                        if value:  # Only update if we have a value
+                            extracted_data[field] = value
+                        break
+        
+        # Normalize transaction type
+        if extracted_data['transaction_type']:
+            tx_type = extracted_data['transaction_type'].lower()
+            if 'income' in tx_type:
+                extracted_data['transaction_type'] = 'INCOME'
+            elif 'expense' in tx_type:
+                extracted_data['transaction_type'] = 'EXPENSE'
+        
+        # Convert amount string to float
+        if extracted_data['amount']:
+            extracted_data['amount'] = safe_float_convert(extracted_data['amount'])
+        
+        # Set default amount if not provided
+        if extracted_data['amount'] is None:
+            extracted_data['amount'] = 0.0
             
-            # Map party_name to customer/vendor fields
-            party_name = data.pop('party_name', None) # Use pop to remove party_name if it exists
-            if party_name:
-                if data.get('transaction_type') == 'Income': # Match prompt's "Income"
-                    data['customer'] = party_name
-                    data['vendor'] = None
-                elif data.get('transaction_type') == 'Expense': # Match prompt's "Expense"
-                    data['vendor'] = party_name
-                    data['customer'] = None
+        # Remove placeholder text from fields
+        for field in ['payment_method', 'reference_number', 'notes']:
+            if extracted_data[field] and ('[' in extracted_data[field] and ']' in extracted_data[field]):
+                # Check if this is just a placeholder
+                if extracted_data[field].startswith('[') and extracted_data[field].endswith(']'):
+                    extracted_data[field] = None  # Replace placeholder with None
+                    
+        # Default payment_method to 'Cash' if not specified
+        if not extracted_data['payment_method']:
+            extracted_data['payment_method'] = 'Cash'
             
-            # Ensure date is in YYYY-MM-DD from whatever Gemini might send based on current_date format 'Month D, YYYY'
-            # The prompt tells Gemini to use YYYY-MM-DD for the 'date' field in JSON, so direct parsing should be fine.
-            # If Gemini deviates, this would be the place to re-parse data.get('date').
-            # For now, trust Gemini follows the new JSON spec in the prompt.
-
-            return data
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON for transaction data: {e}. JSON string: {json_string}")
-            return {}
+        # Ensure party is correctly assigned based on transaction type
+        # For EXPENSE transactions, the vendor receives the payment
+        # For INCOME transactions, the customer provides the payment
+        if extracted_data['transaction_type'] == 'EXPENSE' and not extracted_data['vendor'] and extracted_data['customer']:
+            extracted_data['vendor'] = extracted_data['customer']
+            
+        if extracted_data['transaction_type'] == 'INCOME' and not extracted_data['customer'] and extracted_data['vendor']:
+            extracted_data['customer'] = extracted_data['vendor']
+        
+        return extracted_data
     
-    def _extract_customer_data(self, json_string: str) -> Dict[str, Any]:
-        """Extract customer data from a JSON string"""
-        try:
-            data = json.loads(json_string)
-            return data
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON for customer data: {e}. JSON string: {json_string}")
-            return {}
+    def _extract_customer_data(self, response_text: str) -> Dict[str, Any]:
+        """Extract customer data from the AI response"""
+        extracted_data = {
+            'name': None,
+            'email': None,
+            'phone': None,
+            'gst_number': None,
+            'address': None
+        }
+        
+        # Patterns to extract data from response
+        patterns = {
+            'name': ['Name:', 'Name :', 'Customer Name:'],
+            'email': ['Email:', 'Email :', 'Email Address:'],
+            'phone': ['Phone:', 'Phone :', 'Contact:', 'Mobile:'],
+            'gst_number': ['GST Number:', 'GST:', 'GSTIN:'],
+            'address': ['Address:', 'Address :', 'Location:']
+        }
+        
+        # Extract data using patterns
+        lines = response_text.split('\n')
+        for line in lines:
+            line = line.strip()
+            
+            for field, field_patterns in patterns.items():
+                for pattern in field_patterns:
+                    if line.startswith(pattern):
+                        value = line[len(pattern):].strip()
+                        extracted_data[field] = value
+                        break
+        
+        return extracted_data
     
-    def _extract_vendor_data(self, json_string: str) -> Dict[str, Any]:
-        """Extract vendor data from a JSON string"""
-        try:
-            data = json.loads(json_string)
-            return data
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON for vendor data: {e}. JSON string: {json_string}")
-            return {}
+    def _extract_vendor_data(self, response_text: str) -> Dict[str, Any]:
+        """Extract vendor data from the AI response"""
+        extracted_data = {
+            'name': None,
+            'email': None,
+            'phone': None,
+            'gst_number': None,
+            'address': None
+        }
+        
+        # Patterns to extract data from response
+        patterns = {
+            'name': ['Name:', 'Name :', 'Vendor Name:'],
+            'email': ['Email:', 'Email :', 'Email Address:'],
+            'phone': ['Phone:', 'Phone :', 'Contact:', 'Mobile:'],
+            'gst_number': ['GST Number:', 'GST:', 'GSTIN:'],
+            'address': ['Address:', 'Address :', 'Location:']
+        }
+        
+        # Extract data using patterns
+        lines = response_text.split('\n')
+        for line in lines:
+            line = line.strip()
+            
+            for field, field_patterns in patterns.items():
+                for pattern in field_patterns:
+                    if line.startswith(pattern):
+                        value = line[len(pattern):].strip()
+                        extracted_data[field] = value
+                        break
+        
+        return extracted_data
     
     def generate_financial_insights(self, financial_data: List[Dict[str, Any]]) -> str:
         """Generate insights based on financial data using Gemini"""

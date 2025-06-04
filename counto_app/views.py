@@ -10,9 +10,6 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Union
 import logging
 import json
-import os # Already here, but good to confirm
-import uuid
-from django.conf import settings # Already here, but good to confirm
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -37,18 +34,86 @@ from .services.sheets_services import GoogleSheetsService  # Re-enabled Google S
 
 # Create your views here.
 
-# create_sample_data function removed as it's now a management command.
+def create_sample_data(user):
+    """Create sample transaction data for testing the analytics view"""
+    from datetime import timedelta
+    import random
+    
+    # Create a few sample customers
+    customers = []
+    for i in range(3):
+        customer = Customer.objects.create(
+            user=user,
+            name=f"Customer {i+1}",
+            email=f"customer{i+1}@example.com",
+            phone=f"123-456-{7890+i}",
+            total_receivable=Decimal(str(random.randint(5000, 15000))),
+            total_received=Decimal(str(random.randint(2000, 4000)))
+        )
+        customers.append(customer)
+    
+    # Create a few sample vendors
+    vendors = []
+    for i in range(3):
+        vendor = Vendor.objects.create(
+            user=user,
+            name=f"Vendor {i+1}",
+            email=f"vendor{i+1}@example.com",
+            phone=f"987-654-{3210+i}",
+            total_payable=Decimal(str(random.randint(3000, 10000))),
+            total_paid=Decimal(str(random.randint(1000, 2500)))
+        )
+        vendors.append(vendor)
+    
+    # Income categories
+    income_categories = ['Salary', 'Freelance Work', 'Investments', 'Rental Income', 'Other Income']
+    
+    # Expense categories
+    expense_categories = ['Groceries', 'Rent', 'Utilities', 'Transportation', 'Entertainment', 'Healthcare', 'Dining']
+    
+    # Generate transactions for the last 6 months
+    now = timezone.now().date()
+    start_date = now - timedelta(days=180)  # 6 months ago
+    
+    # Create 50 random transactions
+    for i in range(50):
+        transaction_date = start_date + timedelta(days=random.randint(0, 180))
+        transaction_type = random.choice(['INCOME', 'EXPENSE'])
+        
+        if transaction_type == 'INCOME':
+            category = random.choice(income_categories)
+            amount = Decimal(str(random.randint(1000, 5000)))
+            customer = random.choice(customers) if random.random() > 0.3 else None
+            vendor = None
+            description = f"{category} - {transaction_date.strftime('%b')}"
+        else:  # EXPENSE
+            category = random.choice(expense_categories)
+            amount = Decimal(str(random.randint(500, 3000)))
+            customer = None
+            vendor = random.choice(vendors) if random.random() > 0.3 else None
+            description = f"{category} - {transaction_date.strftime('%b')}"
+        
+        Transaction.objects.create(
+            user=user,
+            date=transaction_date,
+            description=description,
+            category=category,
+            transaction_type=transaction_type,
+            amount=amount,
+            customer=customer,
+            vendor=vendor,
+            payment_method=random.choice(['Cash', 'Credit Card', 'Bank Transfer', 'UPI'])
+        )
+
 
 class AnalyticsDataView(APIView):
     """API endpoint for fetching analytics data for different time periods"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
-        # Sample data creation is now handled by the management command:
-        # `python manage.py create_counto_sample_data <username>`
-        # The check below is removed:
-        # if not Transaction.objects.filter(user=request.user).exists():
-        #     create_sample_data(request.user)
+        # Create sample data if no transactions exist
+        if not Transaction.objects.filter(user=request.user).exists():
+            create_sample_data(request.user)
         
         # Get time period from query parameters
         period = request.query_params.get('period', 'month')
@@ -219,56 +284,6 @@ class AnalyticsDataView(APIView):
             'category_colors': category_colors[:len(categories)],
             'recent_transactions': recent_transactions_data
         }
-
-        # Customer Data - Top 5 by outstanding balance
-        customers_query = Customer.objects.filter(user=request.user, is_active=True)
-        # Order by outstanding_balance. Since outstanding_balance is a property,
-        # we might need to fetch all and sort in Python, or use annotation if it were a direct DB field.
-        # For now, let's fetch all and sort, then limit.
-        all_customers = list(customers_query)
-        # Sort by outstanding_balance in descending order
-        all_customers.sort(key=lambda c: (c.outstanding_balance or Decimal('0')), reverse=True)
-
-        customer_data_list = []
-        for customer in all_customers[:5]: # Limit to top 5
-            customer_data_list.append({
-                'name': customer.name,
-                'total_receivable': float(customer.total_receivable or 0),
-                'total_received': float(customer.total_received or 0),
-                'outstanding_balance': float(customer.outstanding_balance or 0),
-                'is_overdue': customer.is_overdue
-            })
-        response_data['customer_data'] = customer_data_list
-
-        # Vendor Data - Top 5 by outstanding balance
-        vendors_query = Vendor.objects.filter(user=request.user, is_active=True)
-        all_vendors = list(vendors_query)
-        # Sort by outstanding_balance (property) in descending order
-        all_vendors.sort(key=lambda v: (v.outstanding_balance or Decimal('0')), reverse=True)
-
-        vendor_data_list = []
-        for vendor in all_vendors[:5]: # Limit to top 5
-            vendor_data_list.append({
-                'name': vendor.name,
-                'total_payable': float(vendor.total_payable or 0),
-                'total_paid': float(vendor.total_paid or 0),
-                'outstanding_balance': float(vendor.outstanding_balance or 0),
-                'is_overdue': False # Placeholder as Vendor model does not have is_overdue
-            })
-        response_data['vendor_data'] = vendor_data_list
-
-        # Cash Flow Forecast Data (Placeholder)
-        response_data['cash_flow_forecast'] = {
-            'labels': ['Current', 'Next Month', 'In 2 Months', 'In 3 Months'],
-            'income': [float(total_income), float(total_income * Decimal('1.1')), float(total_income * Decimal('1.15')), float(total_income * Decimal('1.2'))], # Dummy projection
-            'expenses': [float(total_expenses), float(total_expenses * Decimal('1.05')), float(total_expenses * Decimal('1.1')), float(total_expenses * Decimal('1.12'))], # Dummy projection
-            'balance': [
-                float(total_income - total_expenses),
-                float((total_income * Decimal('1.1')) - (total_expenses * Decimal('1.05'))),
-                float((total_income * Decimal('1.15')) - (total_expenses * Decimal('1.1'))),
-                float((total_income * Decimal('1.2')) - (total_expenses * Decimal('1.12')))
-            ]
-        }
         
         return Response(response_data)
 def home(request):
@@ -334,16 +349,389 @@ import json
 from .models import Transaction, Customer, Vendor
 
 
-@login_required
 def analytics(request):
-    """Financial analytics dashboard page - data is fetched via API."""
-    context = {
+    """Financial analytics dashboard"""
+    if not request.user.is_authenticated:
+        return redirect('login')
+
+    # Check if we need to generate test data for demo purposes
+    if Transaction.objects.filter(user=request.user).count() == 0:
+        create_sample_data(request.user)
+
+    now = timezone.now()
+    first_day = now.replace(day=1).date()
+    last_day = (first_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+
+    monthly_transactions = Transaction.objects.filter(
+        user=request.user,
+        date__range=(first_day, last_day)
+    )
+
+    # DEBUG
+    print("Monthly transaction count:", monthly_transactions.count())
+    print("Income count:", monthly_transactions.filter(transaction_type='INCOME').count())
+    print("Expense count:", monthly_transactions.filter(transaction_type='EXPENSE').count())
+
+    total_income = monthly_transactions.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+    total_expenses = monthly_transactions.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+
+    print("Total income:", total_income)
+    print("Total expenses:", total_expenses)
+
+    # Ensure Decimal types
+    total_income = Decimal(total_income)
+    total_expenses = Decimal(total_expenses)
+    net_balance = total_income - total_expenses
+    savings_rate = (net_balance / total_income * Decimal('100')) if total_income > 0 else Decimal('0')
+
+    # Monthly data for last 6 months
+    monthly_data = []
+    for i in range(5, -1, -1):
+        target_date = now - timedelta(days=30 * i)
+        month = target_date.month
+        year = target_date.year
+        label = datetime(year, month, 1).strftime('%b %Y')
+
+        trans = Transaction.objects.filter(
+            user=request.user,
+            date__year=year,
+            date__month=month
+        )
+        income = trans.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        expense = trans.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+
+        monthly_data.append({
+            'month': label,
+            'income': float(income),
+            'expenses': float(expense)
+        })
+
+    # Expense categories for pie chart
+    expense_categories = Transaction.objects.filter(
+        user=request.user,
+        transaction_type='EXPENSE',
+        date__range=(first_day, last_day)
+    ).values('category').annotate(total=Sum('amount')).order_by('-total')
+
+    categories = []
+    category_totals = []
+    category_colors = [
+        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e',
+        '#e74a3b', '#858796', '#5a5c69', '#3a3b45'
+    ]
+    for cat in expense_categories:
+        if cat['category'] and cat['total'] > 0:
+            categories.append(cat['category'])
+            category_totals.append(float(cat['total']))
+
+    category_objects = [
+        {'name': categories[i], 'amount': category_totals[i], 'color': category_colors[i % len(category_colors)]}
+        for i in range(len(categories))
+    ]
+
+    # Recent transactions
+    recent_transactions_data = [
+        {
+            'date': tx.date.strftime('%Y-%m-%d'),
+            'description': tx.description,
+            'category': tx.category or 'Uncategorized',
+            'amount': float(tx.amount),
+            'transaction_type': tx.transaction_type.lower()
+        }
+        for tx in Transaction.objects.filter(user=request.user).order_by('-date')[:5]
+    ]
+
+    # Customer data
+    customer_data = []
+    for cust in Customer.objects.filter(user=request.user, is_active=True):
+        income = Transaction.objects.filter(user=request.user, customer=cust, transaction_type='INCOME').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        if income > 0 or cust.total_receivable > 0 or cust.total_received > 0:
+            customer_data.append({
+                'name': cust.name,
+                'total_receivable': float(cust.total_receivable or income),
+                'total_received': float(cust.total_received),
+                'outstanding_balance': float(cust.outstanding_balance or income - cust.total_received),
+                'is_overdue': cust.is_overdue
+            })
+
+    # Vendor data
+    vendor_data = []
+    for vendor in Vendor.objects.filter(user=request.user, is_active=True):
+        expense = Transaction.objects.filter(user=request.user, vendor=vendor, transaction_type='EXPENSE').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        if expense > 0 or vendor.total_payable > 0 or vendor.total_paid > 0:
+            vendor_data.append({
+                'name': vendor.name,
+                'total_payable': float(vendor.total_payable or expense),
+                'total_paid': float(vendor.total_paid),
+                'outstanding_balance': float(vendor.outstanding_balance or expense - vendor.total_paid),
+            })
+
+    # context = {
+    #     'title': 'Financial Analytics',
+    #     'summary': json.dumps({
+    #         'total_income': float(total_income),
+    #         'total_expenses': float(total_expenses),
+    #         'net_balance': float(net_balance),
+    #         'savings_rate': float(round(savings_rate, 1))
+    #     }),
+    #     'monthly_data': json.dumps(monthly_data),
+    #     'categories': json.dumps(category_objects),
+    #     'category_totals': json.dumps(category_totals),
+    #     'category_colors': json.dumps(category_colors[:len(categories)]),
+    #     'recent_transactions': json.dumps(recent_transactions_data),
+    #     'customer_data': json.dumps(customer_data),
+    #     'vendor_data': json.dumps(vendor_data)
+    # }
+
+        context = {
         'title': 'Financial Analytics',
-    }
+        'summary': {
+            'total_income': float(total_income),
+            'total_expenses': float(total_expenses),
+            'net_balance': float(net_balance),
+            'savings_rate': float(round(savings_rate, 1))
+        },
+        'monthly_data': monthly_data,
+        'categories': category_objects,
+        'category_totals': category_totals,
+        'category_colors': category_colors[:len(categories)],
+        'recent_transactions': recent_transactions_data,
+        'customer_data': customer_data,
+        'vendor_data': vendor_data,
+        }
+
+
+        print(context)
+    #     # Print everything to the terminal
+    # print("Context data sent to template:")
+    # print("Title:", context['title'])
+    # print("Summary:", json.dumps(json.loads(context['summary']), indent=2))
+    # print("Monthly Data:", json.dumps(json.loads(context['monthly_data']), indent=2))
+    # print("Categories:", json.dumps(json.loads(context['categories']), indent=2))
+    # print("Category Totals:", json.dumps(json.loads(context['category_totals']), indent=2))
+    # print("Category Colors:", json.dumps(json.loads(context['category_colors']), indent=2))
+    # print("Recent Transactions:", json.dumps(json.loads(context['recent_transactions']), indent=2))
+    # print("Customer Data:", json.dumps(json.loads(context['customer_data']), indent=2))
+    # print("Vendor Data:", json.dumps(json.loads(context['vendor_data']), indent=2))
+
     return render(request, 'analytics.html', context)
 
-# The old analytics view code has been removed as per previous subtasks.
-# This is just ensuring it's clean and matches the simplified version.
+
+# def analytics(request):
+#     """Financial analytics dashboard"""
+#     if not request.user.is_authenticated:
+#         return redirect('login')
+    
+#     # Check if we need to generate test data for demo purposes
+#     transaction_count = Transaction.objects.filter(user=request.user).count()
+#     if transaction_count == 0:
+#         # Create sample data for testing if no transactions exist
+#         create_sample_data(request.user)
+    
+#     # Get current month and year for filtering
+#     now = timezone.now()
+#     current_month = now.month
+#     current_year = now.year
+    
+#     # Get transactions for the current month
+#     monthly_transactions = Transaction.objects.filter(
+#         user=request.user,
+#         date__year=current_year,
+#         date__month=current_month
+#     )
+    
+#     # Calculate summary statistics
+#     total_income = monthly_transactions.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+#     total_expenses = monthly_transactions.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+    
+#     # Ensure consistent decimal types
+#     if not isinstance(total_income, Decimal):
+#         total_income = Decimal(str(total_income))
+#     if not isinstance(total_expenses, Decimal):
+#         total_expenses = Decimal(str(total_expenses))
+        
+#     net_balance = total_income - total_expenses
+#     savings_rate = (net_balance / total_income * Decimal('100')) if total_income > 0 else Decimal('0')
+    
+#     # Get data for the last 6 months for the chart
+#     months_back = 6
+#     monthly_data = []
+#     for i in range(months_back - 1, -1, -1):
+#         month = now.month - i
+#         year = now.year
+#         if month <= 0:
+#             month += 12
+#             year -= 1
+            
+#         month_date = datetime(year, month, 1)
+#         month_name = month_date.strftime('%b %Y')
+            
+#         month_transactions = Transaction.objects.filter(
+#             user=request.user,
+#             date__year=year,
+#             date__month=month
+#         )
+        
+#         month_income = month_transactions.filter(transaction_type='INCOME').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+#         month_expenses = month_transactions.filter(transaction_type='EXPENSE').aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+        
+#         # Ensure consistent decimal types
+#         if not isinstance(month_income, Decimal):
+#             month_income = Decimal(str(month_income))
+#         if not isinstance(month_expenses, Decimal):
+#             month_expenses = Decimal(str(month_expenses))
+        
+#         monthly_data.append({
+#             'month': month_name,
+#             # Convert to float only when adding to the context for JSON serialization
+#             'income': float(month_income),
+#             'expenses': float(month_expenses)
+#         })
+    
+#     # Get expense categories
+#     expense_categories = Transaction.objects.filter(
+#         user=request.user,
+#         transaction_type='EXPENSE',
+#         date__year=current_year,
+#         date__month=current_month
+#     ).values('category').annotate(total=Sum('amount')).order_by('-total')
+    
+#     # Prepare category data for the chart
+#     categories = []
+#     category_totals = []
+#     category_colors = [
+#         '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796',
+#         '#5a5c69', '#3a3b45', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'
+#     ]
+    
+#     for i, cat in enumerate(expense_categories):
+#         if cat['category'] and cat['total'] > 0:
+#             categories.append(cat['category'])
+#             category_totals.append(float(cat['total']))
+    
+#     # Get recent transactions
+#     recent_transactions = Transaction.objects.filter(
+#         user=request.user
+#     ).order_by('-date')[:5]
+    
+#     # Serialize recent transactions for JavaScript
+#     recent_transactions_data = []
+#     for transaction in recent_transactions:
+#         recent_transactions_data.append({
+#             'date': transaction.date.strftime('%Y-%m-%d'),
+#             'description': transaction.description,
+#             'category': transaction.category or 'Uncategorized',
+#             'amount': float(transaction.amount),
+#             'transaction_type': transaction.transaction_type.lower()
+#         })
+        
+#     # Calculate customer data directly from transactions and invoices
+#     customers = Customer.objects.filter(user=request.user, is_active=True)
+#     customer_data = []
+    
+#     for customer in customers:
+#         # Get total transactions for this customer
+#         customer_income = Transaction.objects.filter(
+#             user=request.user,
+#             customer=customer,
+#             transaction_type='INCOME'
+#         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+#         # Ensure we have properly calculated values even if the balance fields aren't updated
+#         if customer_income > 0 or customer.total_receivable > 0 or customer.total_received > 0:
+#             customer_data.append({
+#                 'name': customer.name,
+#                 'total_receivable': float(customer.total_receivable) or float(customer_income),
+#                 'total_received': float(customer.total_received),
+#                 'outstanding_balance': float(customer.outstanding_balance) or float(customer_income - customer.total_received),
+#                 'is_overdue': customer.is_overdue
+#             })
+    
+#     # Calculate vendor data directly from transactions and bills
+#     vendors = Vendor.objects.filter(user=request.user, is_active=True)
+#     vendor_data = []
+    
+#     for vendor in vendors:
+#         # Get total transactions for this vendor
+#         vendor_expenses = Transaction.objects.filter(
+#             user=request.user,
+#             vendor=vendor,
+#             transaction_type='EXPENSE'
+#         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+#         # Ensure we have properly calculated values even if the balance fields aren't updated
+#         if vendor_expenses > 0 or vendor.total_payable > 0 or vendor.total_paid > 0:
+#             vendor_data.append({
+#                 'name': vendor.name,
+#                 'total_payable': float(vendor.total_payable) or float(vendor_expenses),
+#                 'total_paid': float(vendor.total_paid),
+#                 'outstanding_balance': float(vendor.outstanding_balance) or float(vendor_expenses - vendor.total_paid),
+#             })
+            
+#     # If we don't have any customer/vendor data, let's add some sample data for testing
+#     if not customer_data:
+#         # Find all income transactions and group by description as a proxy for customer
+#         income_by_source = Transaction.objects.filter(
+#             user=request.user,
+#             transaction_type='INCOME'
+#         ).values('description').annotate(total=Sum('amount')).order_by('-total')[:5]
+        
+#         for source in income_by_source:
+#             if source['total'] > 0:
+#                 customer_data.append({
+#                     'name': source['description'] or 'Unknown Source',
+#                     'total_receivable': float(source['total']),
+#                     'total_received': 0,
+#                     'outstanding_balance': float(source['total']),
+#                     'is_overdue': False
+#                 })
+    
+#     if not vendor_data:
+#         # Find all expense transactions and group by description as a proxy for vendor
+#         expenses_by_source = Transaction.objects.filter(
+#             user=request.user,
+#             transaction_type='EXPENSE'
+#         ).values('description').annotate(total=Sum('amount')).order_by('-total')[:5]
+        
+#         for source in expenses_by_source:
+#             if source['total'] > 0:
+#                 vendor_data.append({
+#                     'name': source['description'] or 'Unknown Vendor',
+#                     'total_payable': float(source['total']),
+#                     'total_paid': 0,
+#                     'outstanding_balance': float(source['total'])
+#                 })
+    
+#     # Create category objects for the chart
+#     category_objects = []
+#     for i, category in enumerate(categories):
+#         if i < len(category_totals) and i < len(category_colors):
+#             category_objects.append({
+#                 'name': category,
+#                 'amount': category_totals[i],
+#                 'color': category_colors[i]
+#             })
+    
+#     # Prepare context
+#     context = {
+#         'title': 'Financial Analytics',
+#         'summary': {
+#             # Convert Decimal to float for JSON serialization
+#             'total_income': float(total_income),
+#             'total_expenses': float(total_expenses),
+#             'net_balance': float(net_balance),
+#             'savings_rate': float(round(savings_rate, 1))
+#         },
+#         'monthly_data': json.dumps(monthly_data),
+#         'categories': json.dumps(category_objects),
+#         'category_totals': json.dumps(category_totals),
+#         'category_colors': json.dumps(category_colors[:len(categories)]),
+#         'recent_transactions': json.dumps(recent_transactions_data),
+#         'customer_data': json.dumps(customer_data),
+#         'vendor_data': json.dumps(vendor_data)
+#     }
+    
+#     return render(request, 'analytics.html', context)
 
 
 def upload_document(request):
@@ -371,31 +759,13 @@ def upload_document(request):
             {'status': 'error', 'message': 'No file selected'}, 
             status=400
         )
-
-    # File validation
-    ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg']
-    MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
-
-    file_name = file.name
-    file_ext = os.path.splitext(file_name)[1].lower()
-
-    if file_ext not in ALLOWED_EXTENSIONS:
-        logger.warning(f"Invalid file extension: {file_ext}. Allowed: {ALLOWED_EXTENSIONS}")
-        return JsonResponse(
-            {'status': 'error', 'message': f"Invalid file type. Allowed extensions are: {', '.join(ALLOWED_EXTENSIONS)}"},
-            status=400
-        )
-
-    if file.size > MAX_FILE_SIZE:
-        logger.warning(f"File size exceeds limit: {file.size} bytes. Max: {MAX_FILE_SIZE} bytes")
-        return JsonResponse(
-            {'status': 'error', 'message': f"File is too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)}MB."},
-            status=400
-        )
     
     try:
         logger.info(f"Processing file upload: {file.name} ({file.size} bytes)")
         
+        # Get file extension
+        file_name = file.name
+        file_ext = os.path.splitext(file_name)[1].lower()
         safe_name = f"{uuid.uuid4().hex}{file_ext}"
         
         # Ensure the upload directory exists
@@ -472,6 +842,15 @@ class MessageView(APIView):
         except Exception as e:
             logging.error(f"Failed to initialize Google Sheets: {str(e)}")
             self.sheets_enabled = False
+        
+        # Initialize Tally Integration
+        try:
+            from .tally.tally_integration import TallyIntegrationService
+            self.tally_service = TallyIntegrationService()
+            self.tally_enabled = True
+        except Exception as e:
+            logging.error(f"Failed to initialize Tally Integration: {str(e)}")
+            self.tally_enabled = False
     
     def get(self, request, conversation_id):
         """Get all messages for a specific conversation"""
@@ -590,7 +969,7 @@ class MessageView(APIView):
         # Handle date conversion
         date_str = extracted_data.get('date')
         transaction_date = None
-        # print("handling transaction data") # Removed
+        print("handling transaction data")
         if date_str:
             for fmt in ['%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y']:
                 try:
@@ -646,30 +1025,180 @@ class MessageView(APIView):
                     address=extracted_data.get('vendor_address', '')
                 )
 
-        # Create a pending transaction with all extracted details
-        # Actual Transaction creation and balance updates will happen upon confirmation
-        PendingTransaction.objects.create(
+        # Create transaction record based on new Transaction model
+        transaction = Transaction.objects.create(
             user=user,
-            conversation=self.current_conversation,
             date=transaction_date,
             description=extracted_data.get('description', ''),
             category=extracted_data.get('category', ''),
-            amount=amount, # This is the parsed Decimal amount
-            transaction_type=transaction_type, # INCOME or EXPENSE
+            transaction_type=transaction_type,
+            amount=amount,
+            customer=customer,
+            vendor=vendor,
             payment_method=extracted_data.get('payment_method', ''),
             reference_number=extracted_data.get('reference_number', ''),
-            notes=extracted_data.get('notes', ''), # Added notes field
-            party=customer_name if transaction_type == 'INCOME' else vendor_name,
-            # Storing customer/vendor instances directly if models are updated,
-            # otherwise, party field (name) is used and objects are fetched/created on confirmation.
-            # For now, assuming 'party' (CharField) is sufficient for PendingTransaction.
-            # customer=customer, # If PendingTransaction model is updated to link Customer
-            # vendor=vendor,     # If PendingTransaction model is updated to link Vendor
-            raw_data=json.dumps(extracted_data) # Store the raw extracted data for reference
+            notes=extracted_data.get('notes', '')
         )
         
-        # Return the original AI response from Gemini, which should ask for confirmation.
-        # No modification to ai_response here regarding recording, balance updates, or Sheets sync.
+        # Update customer/vendor balances using Decimal for precision
+        if transaction_type == 'INCOME' and customer:
+            # Ensure total_receivable is a Decimal before adding amount
+            if customer.total_receivable is None:
+                customer.total_receivable = Decimal('0.00')
+            elif not isinstance(customer.total_receivable, Decimal):
+                customer.total_receivable = Decimal(str(customer.total_receivable))
+                
+            customer.total_receivable = (customer.total_receivable + amount).quantize(Decimal('0.00'))
+            # outstanding_balance is a read-only property, no need to set it
+            customer.save()
+        elif transaction_type == 'EXPENSE' and vendor:
+            # Ensure total_payable is a Decimal before adding amount
+            if vendor.total_payable is None:
+                vendor.total_payable = Decimal('0.00')
+            elif not isinstance(vendor.total_payable, Decimal):
+                vendor.total_payable = Decimal(str(vendor.total_payable))
+                
+            vendor.total_payable = (vendor.total_payable + amount).quantize(Decimal('0.00'))
+            # outstanding_balance is a read-only property, no need to set it
+            vendor.save()
+
+        # Create a pending transaction for reference (if needed)
+        pending_transaction = PendingTransaction.objects.create(
+            user=user,
+            conversation=self.current_conversation,  # Use the stored conversation
+            date=transaction_date,
+            description=transaction.description,
+            category=transaction.category,
+            amount=transaction.amount,
+            transaction_type=transaction.transaction_type,
+            payment_method=transaction.payment_method,
+            reference_number=transaction.reference_number,
+            party=customer_name if transaction_type == 'INCOME' else vendor_name
+        )
+
+        # Update AI response
+        if "Would you like me to record this transaction?" in ai_response:
+            ai_response = ai_response.split("Would you like me to record this transaction?")[0]
+            
+            # Prepare transaction details for the response
+            transaction_type = 'Income' if transaction.transaction_type == 'INCOME' else 'Expense'
+            party = customer.name if customer else vendor.name if vendor else 'N/A'
+            
+            # Sync with Tally if enabled
+            tally_success = False
+            tally_error = None
+            if self.tally_enabled:
+                try:
+                    if transaction.transaction_type == 'INCOME' and customer:
+                        # Sync customer to Tally
+                        result = self.tally_service.sync_customer_to_ledger(customer)
+                        if result.get('success'):
+                            # Sync sales transaction
+                            result = self.tally_service.sync_sales_transaction(transaction)
+                            if result.get('success'):
+                                tally_success = True
+                            else:
+                                tally_error = result.get('error', 'Unknown error syncing transaction to Tally')
+                        else:
+                            tally_error = result.get('error', 'Unknown error syncing customer to Tally')
+                    elif transaction.transaction_type == 'EXPENSE' and vendor:
+                        # Sync vendor to Tally
+                        result = self.tally_service.sync_vendor_to_ledger(vendor)
+                        if result.get('success'):
+                            # Sync purchase transaction
+                            result = self.tally_service.sync_purchase_transaction(transaction)
+                            if result.get('success'):
+                                tally_success = True
+                            else:
+                                tally_error = result.get('error', 'Unknown error syncing transaction to Tally')
+                        else:
+                            tally_error = result.get('error', 'Unknown error syncing vendor to Tally')
+                except Exception as e:
+                    tally_error = str(e)
+                    logging.error(f"Tally sync failed: {tally_error}")
+            
+            ai_response += f"\n\n✅ {transaction_type} of ₹{amount:,.2f} "
+            ai_response += f"for {party} has been recorded!\n"
+            
+            # Add Tally sync status to response
+            if self.tally_enabled:
+                if tally_success:
+                    ai_response += "\n🔄 Transaction synced with Tally."
+                elif tally_error:
+                    ai_response += f"\n⚠️ Tally sync failed: {tally_error}"
+                else:
+                    ai_response += "\nℹ️ Tally sync not applicable for this transaction."
+            
+            # Add financial summary for customer/vendor
+            if customer:
+                ai_response += f"\n💳 Customer Balance Update for {customer.name}:"
+                ai_response += f"\n• Total Receivable: ₹{customer.total_receivable:,.2f}"
+                ai_response += f"\n• Total Received: ₹{customer.total_received:,.2f}"
+                ai_response += f"\n• Outstanding Balance: ₹{customer.outstanding_balance:,.2f}"
+            elif vendor:
+                ai_response += f"\n💳 Vendor Balance Update for {vendor.name}:"
+                ai_response += f"\n• Total Payable: ₹{vendor.total_payable:,.2f}"
+                ai_response += f"\n• Total Paid: ₹{vendor.total_paid:,.2f}"
+                ai_response += f"\n• Outstanding Balance: ₹{vendor.outstanding_balance:,.2f}"
+            
+            # Sync with Google Sheets
+            sheets_success = False
+            sheets_error = None
+            if self.sheets_enabled:
+                try:
+                    # Sync transaction
+                    sheets_data = {
+                        'date': transaction_date,
+                        'description': transaction.description,
+                        'category': transaction.category,
+                        'transaction_type': transaction.transaction_type,
+                        'amount': float(str(amount)),  # Convert Decimal to string then to float
+                        'payment_method': transaction.payment_method or '',
+                        'reference_number': transaction.reference_number or '',
+                        'customer': customer.name if customer else '',
+                        'vendor': vendor.name if vendor else '',
+                        'notes': transaction.notes or ''
+                    }
+                    sheets_success = self.sheets_service.add_transaction(sheets_data)
+                    
+                    # Update customer/vendor in Google Sheets if this is a new transaction
+                    if customer:
+                        customer_sheets_data = {
+                            'name': customer.name,
+                            'email': customer.email or '',
+                            'phone': customer.phone or '',
+                            'gst_number': customer.gst_number or '',
+                            'address': customer.address or '',
+                            'total_receivable': float(str(customer.total_receivable or '0')),
+                            'total_received': float(str(customer.total_received or '0')),
+                            'outstanding_balance': float(str(customer.outstanding_balance or '0'))
+                        }
+                        self.sheets_service.add_customer(customer_sheets_data)
+                    elif vendor:
+                        vendor_sheets_data = {
+                            'name': vendor.name,
+                            'email': vendor.email or '',
+                            'phone': vendor.phone or '',
+                            'gst_number': vendor.gst_number or '',
+                            'address': vendor.address or '',
+                            'total_payable': float(str(vendor.total_payable or '0')),
+                            'total_paid': float(str(vendor.total_paid or '0')),
+                            'outstanding_balance': float(str(vendor.outstanding_balance or '0'))
+                        }
+                        self.sheets_service.add_vendor(vendor_sheets_data)
+                        
+                except Exception as e:
+                    sheets_error = str(e)
+                    logging.error(f"Google Sheets sync failed: {sheets_error}")
+            
+            # Add sync status to response
+            if sheets_success:
+                ai_response += "\n\n📊 Data synced with Google Sheets."
+            elif sheets_error:
+                ai_response += f"\n\n⚠️ Note: Google Sheets sync failed ({sheets_error})"
+            else:
+                ai_response += "\n\n💾 Data saved locally (Google Sheets not configured)."
+                
         return ai_response
 
     def _handle_customer_data(self, user, extracted_data, ai_response):
@@ -724,6 +1253,39 @@ class MessageView(APIView):
             except Exception as e:
                 sheets_error = str(e)
                 logging.error(f"Google Sheets sync failed: {sheets_error}")
+        
+        # Sync with Tally
+        tally_success = False
+        tally_error = None
+        if self.tally_enabled:
+            try:
+                result = self.tally_service.sync_customer_to_ledger(customer)
+                if result.get('success'):
+                    tally_success = True
+                else:
+                    tally_error = result.get('error', 'Unknown error syncing to Tally')
+            except Exception as e:
+                tally_error = str(e)
+                logging.error(f"Tally sync failed: {tally_error}")
+        
+        # Update response with sync status
+        sync_status = []
+        if sheets_success:
+            sync_status.append("Google Sheets")
+        elif sheets_error:
+            sync_status.append(f"Google Sheets sync failed: {sheets_error}")
+            
+        if self.tally_enabled:
+            if tally_success:
+                sync_status.append("Tally")
+            elif tally_error:
+                sync_status.append(f"Tally sync failed: {tally_error}")
+        
+        if sync_status:
+            sync_status_str = ", ".join(sync_status)
+            ai_response = f"✅ Customer {operation} successfully and synced with {sync_status_str}!"
+        else:
+            ai_response = f"✅ Customer {operation} successfully! (No sync services configured)"
                 
         # Update AI response with financial summary if this is an update
         if operation == "updated":
@@ -773,6 +1335,23 @@ class MessageView(APIView):
             'gst_number': extracted_data.get('gst_number', ''),
             'address': extracted_data.get('address', '')
         }
+        
+        # Sync with Tally if enabled
+        tally_success = False
+        tally_error = None
+        if self.tally_enabled and vendor_data['name']:
+            try:
+                # Create a temporary vendor object for Tally sync
+                from .models import Vendor
+                temp_vendor = Vendor(user=user, **vendor_data)
+                result = self.tally_service.sync_vendor_to_ledger(temp_vendor)
+                if result.get('success'):
+                    tally_success = True
+                else:
+                    tally_error = result.get('error', 'Unknown error syncing to Tally')
+            except Exception as e:
+                tally_error = str(e)
+                logging.error(f"Tally sync failed: {tally_error}")
 
         # Check if vendor already exists
         existing_vendor = None
@@ -815,6 +1394,37 @@ class MessageView(APIView):
             except Exception as e:
                 sheets_error = str(e)
                 logging.error(f"Google Sheets sync failed: {sheets_error}")
+        
+        # Sync with Tally
+        if self.tally_enabled and not tally_success:  # Only sync if not already synced earlier
+            try:
+                result = self.tally_service.sync_vendor_to_ledger(vendor)
+                if result.get('success'):
+                    tally_success = True
+                else:
+                    tally_error = result.get('error', 'Unknown error syncing to Tally')
+            except Exception as e:
+                tally_error = str(e)
+                logging.error(f"Tally sync failed: {tally_error}")
+        
+        # Update response with sync status
+        sync_status = []
+        if sheets_success:
+            sync_status.append("Google Sheets")
+        elif sheets_error:
+            sync_status.append(f"Google Sheets sync failed: {sheets_error}")
+            
+        if self.tally_enabled:
+            if tally_success:
+                sync_status.append("Tally")
+            elif tally_error:
+                sync_status.append(f"Tally sync failed: {tally_error}")
+        
+        if sync_status:
+            sync_status_str = ", ".join(sync_status)
+            ai_response = f"✅ Vendor {operation} successfully and synced with {sync_status_str}!"
+        else:
+            ai_response = f"✅ Vendor {operation} successfully! (No sync services configured)"
                 
         # Update AI response with financial summary if this is an update
         if operation == "updated":
@@ -1111,118 +1721,71 @@ class TransactionConfirmView(APIView):
         )
         
         if confirm:
-            # Prepare Transaction data from PendingTransaction
-            transaction_data_for_create = {
-                'user': request.user,
+            # Prepare transaction data
+            transaction_data = {
                 'date': pending_transaction.date,
                 'description': pending_transaction.description,
                 'category': pending_transaction.category,
                 'transaction_type': pending_transaction.transaction_type,
-                'amount': pending_transaction.amount, # Using .amount as per model
+                'expected_amount': pending_transaction.expected_amount,
+                'paid_amount': pending_transaction.paid_amount,
+                'status': pending_transaction.status,
                 'payment_method': pending_transaction.payment_method,
                 'reference_number': pending_transaction.reference_number,
-                'notes': pending_transaction.notes if hasattr(pending_transaction, 'notes') else '' # Check if notes exists
+                'customer': pending_transaction.customer,
+                'vendor': pending_transaction.vendor
             }
-
-            customer = None
-            vendor = None
-
-            if pending_transaction.party and pending_transaction.party.strip() != "":
-                party_name = pending_transaction.party.strip()
-                if pending_transaction.transaction_type == 'INCOME':
-                    customer, _ = Customer.objects.get_or_create(
-                        user=request.user,
-                        name=party_name,
-                        defaults={'email': '', 'phone': ''} # Provide defaults
-                    )
-                    transaction_data_for_create['customer'] = customer
-                elif pending_transaction.transaction_type == 'EXPENSE':
-                    vendor, _ = Vendor.objects.get_or_create(
-                        user=request.user,
-                        name=party_name,
-                        defaults={'email': '', 'phone': ''} # Provide defaults
-                    )
-                    transaction_data_for_create['vendor'] = vendor
             
-            # Create the actual Transaction
-            transaction = Transaction.objects.create(**transaction_data_for_create)
-
-            # Update Balances
-            if customer and transaction.transaction_type == 'INCOME':
-                if customer.total_received is None:
-                    customer.total_received = Decimal('0.00')
-                customer.total_received += transaction.amount
-                customer.save()
-            elif vendor and transaction.transaction_type == 'EXPENSE':
-                if vendor.total_paid is None:
-                    vendor.total_paid = Decimal('0.00')
-                vendor.total_paid += transaction.amount
-                vendor.save()
-
-            # Google Sheets Sync
-            if self.sheets_enabled:
+            # Try to save to Google Sheets if enabled
+            sheets_success = False
+            if hasattr(self, 'sheets_enabled') and self.sheets_enabled:
                 try:
-                    sheets_transaction_data = {
-                        'date': transaction.date.strftime('%Y-%m-%d'),
-                        'description': transaction.description,
-                        'category': transaction.category,
-                        'transaction_type': transaction.transaction_type,
-                        'amount': float(transaction.amount),
-                        'payment_method': transaction.payment_method or '',
-                        'reference_number': transaction.reference_number or '',
-                        'customer': customer.name if customer else '',
-                        'vendor': vendor.name if vendor else '',
-                        'notes': transaction.notes or ''
-                    }
-                    self.sheets_service.add_transaction(sheets_transaction_data)
-
-                    if customer:
-                        customer_sheets_data = {
-                            'name': customer.name,
-                            'email': customer.email or '',
-                            'phone': customer.phone or '',
-                            'gst_number': customer.gst_number or '',
-                            'address': customer.address or '',
-                            'total_receivable': float(customer.total_receivable or '0'),
-                            'total_received': float(customer.total_received or '0'),
-                            'outstanding_balance': float(customer.outstanding_balance or '0')
-                        }
-                        self.sheets_service.add_customer(customer_sheets_data)
-                    elif vendor:
-                        vendor_sheets_data = {
-                            'name': vendor.name,
-                            'email': vendor.email or '',
-                            'phone': vendor.phone or '',
-                            'gst_number': vendor.gst_number or '',
-                            'address': vendor.address or '',
-                            'total_payable': float(vendor.total_payable or '0'),
-                            'total_paid': float(vendor.total_paid or '0'),
-                            'outstanding_balance': float(vendor.outstanding_balance or '0')
-                        }
-                        self.sheets_service.add_vendor(vendor_sheets_data)
+                    sheets_data = transaction_data.copy()
+                    # Convert model instances to names for sheets
+                    if transaction_data.get('customer'):
+                        sheets_data['customer'] = transaction_data['customer'].name
+                    if transaction_data.get('vendor'):
+                        sheets_data['vendor'] = transaction_data['vendor'].name
+                        
+                    sheets_success = self.sheets_service.add_transaction(sheets_data)
                 except Exception as e:
-                    logging.error(f"Google Sheets sync failed during transaction confirmation: {str(e)}")
-
-            # Add confirmation message to conversation
-            conversation = pending_transaction.conversation
-            Message.objects.create(
-                conversation=conversation,
-                sender='AI',
-                content=f"✅ Transaction confirmed and added to your records:\n\n"
-                        f"• Date: {pending_transaction.date}\n"
-                        f"• Description: {pending_transaction.description}\n"
-                        f"• Amount: ₹{pending_transaction.amount:,.2f}\n"
-                        f"• Category: {pending_transaction.category or 'Uncategorized'}"
-            )
+                    logging.error(f"Failed to add to Google Sheets: {str(e)}")
             
-            # Delete the pending transaction
-            pending_transaction.delete()
-
-            return Response({
-                'status': 'success',
-                'message': 'Transaction added successfully',
-                'transaction_id': transaction.id
-            })
+            # Always succeed locally even if Google Sheets fails
+            success = True
+            
+            if success:
+                # Create a Transaction record in our database
+                transaction = Transaction.objects.create(
+                    user=request.user,
+                    **transaction_data
+                )
+                
+                # Add confirmation message to conversation
+                conversation = pending_transaction.conversation
+                Message.objects.create(
+                    conversation=conversation,
+                    sender='AI',
+                    content=f"✅ Transaction confirmed and added to your records:\n\n"
+                            f"• {pending_transaction.date}: {pending_transaction.description}\n"
+                            f"• Expected Amount: {pending_transaction.expected_amount}\n"
+                            f"• Paid Amount: {pending_transaction.paid_amount}\n"
+                            f"• Category: {pending_transaction.category or 'Uncategorized'}"
+                )
+                
+                # Delete the pending transaction
+                pending_transaction.delete()
+                
+                return Response({
+                    'status': 'success',
+                    'message': 'Transaction added successfully',
+                    'transaction_id': transaction.id
+                })
+            else:
+                return Response({
+                    'status': 'error',
+                    'message': 'Failed to add transaction to your records'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             # User rejected the transaction
             conversation = pending_transaction.conversation
@@ -1306,7 +1869,14 @@ def financial_summary(request):
     } for v in vendors]
     
     # Print debug information
-    # Removed print statements
+    print("\n=== DATA SENT TO GEMINI FOR SUMMARY ===")
+    print("\nTRANSACTIONS (Last 30 days):")
+    print(json.dumps(transaction_data, indent=2))
+    print("\nCUSTOMERS:")
+    print(json.dumps(customer_data, indent=2))
+    print("\nVENDORS:")
+    print(json.dumps(vendor_data, indent=2))
+    print("\n" + "="*80 + "\n")
     
     # Generate insights
     gemini_service = GeminiService()

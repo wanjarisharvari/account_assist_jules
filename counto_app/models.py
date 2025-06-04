@@ -14,11 +14,9 @@ class Conversation(models.Model):
         return f"Conversation {self.id} - {self.user.username}"
 
 class Message(models.Model):
-    USER = 'USER'
-    AI = 'AI'
     SENDER_CHOICES = [
-        (USER, 'User'),
-        (AI, 'AI'),
+        ('USER', 'User'),
+        ('AI', 'AI')
     ]
     
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
@@ -77,8 +75,18 @@ class Customer(models.Model):
     @property
     def outstanding_balance(self):
         """Amount still to be received from customer"""
-        # Assumes total_receivable and total_received are always Decimal due to model field definitions
-        return (self.total_receivable - self.total_received).quantize(Decimal('0.00'))
+        # Ensure both values are Decimal before subtraction
+        if not isinstance(self.total_receivable, Decimal):
+            total_receivable = Decimal(str(self.total_receivable or '0'))
+        else:
+            total_receivable = self.total_receivable
+            
+        if not isinstance(self.total_received, Decimal):
+            total_received = Decimal(str(self.total_received or '0'))
+        else:
+            total_received = self.total_received
+            
+        return (total_receivable - total_received).quantize(Decimal('0.00'))
 
     @property
     def is_overdue(self):
@@ -132,8 +140,18 @@ class Vendor(models.Model):
     @property
     def outstanding_balance(self):
         """Amount still to be paid to vendor"""
-        # Assumes total_payable and total_paid are always Decimal due to model field definitions
-        return (self.total_payable - self.total_paid).quantize(Decimal('0.00'))
+        # Ensure both values are Decimal before subtraction
+        if not isinstance(self.total_payable, Decimal):
+            total_payable = Decimal(str(self.total_payable or '0'))
+        else:
+            total_payable = self.total_payable
+            
+        if not isinstance(self.total_paid, Decimal):
+            total_paid = Decimal(str(self.total_paid or '0'))
+        else:
+            total_paid = self.total_paid
+            
+        return (total_payable - total_paid).quantize(Decimal('0.00'))
 
     def update_balances(self):
         """Recalculate balance from related transactions"""
@@ -148,11 +166,9 @@ class Vendor(models.Model):
 
 class Transaction(models.Model):
     """Simplified transaction model - just records what happened"""
-    INCOME = 'INCOME'
-    EXPENSE = 'EXPENSE'
     TYPE_CHOICES = [
-        (INCOME, 'Income'),
-        (EXPENSE, 'Expense'),
+        ('INCOME', 'Income'),
+        ('EXPENSE', 'Expense'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
