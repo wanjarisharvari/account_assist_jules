@@ -158,7 +158,7 @@ class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateField()
     description = models.CharField(max_length=255)
-    category = models.CharField(max_length=100, blank=True)
+    category = models.CharField(max_length=100, blank=True, null=True)
     transaction_type = models.CharField(max_length=7, choices=TYPE_CHOICES)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     

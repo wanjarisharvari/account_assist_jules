@@ -653,7 +653,7 @@ class MessageView(APIView):
             conversation=self.current_conversation,
             date=transaction_date,
             description=extracted_data.get('description', ''),
-            category=extracted_data.get('category', ''),
+            category=extracted_data.get('category'), # Ensures None is passed if key exists and is None, or if key is missing
             amount=amount, # This is the parsed Decimal amount
             transaction_type=transaction_type, # INCOME or EXPENSE
             payment_method=extracted_data.get('payment_method', ''),

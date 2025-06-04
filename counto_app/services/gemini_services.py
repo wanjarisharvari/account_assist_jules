@@ -27,6 +27,15 @@ except ImportError:
 
 class GeminiService:
     """Service for processing financial messages using Google's Gemini API"""
+    PLACEHOLDER_CATEGORIES = [
+        "[Please specify category]",
+        "Please specify the category, e.g., Business Expense, Personal Expense",
+        "N/A",
+        "Unknown",
+        "",
+        "Other",
+        "Miscellaneous"
+    ]
     
     def __init__(self):
         """Initialize the Gemini service with the appropriate model"""
@@ -557,6 +566,21 @@ class GeminiService:
                     data['amount'] = 0.0
             elif 'amount' not in data: # Ensure amount field exists
                  data['amount'] = 0.0
+
+            # Handle placeholder categories
+            extracted_category = data.get('category')
+            if isinstance(extracted_category, str):
+                # Lowercase and strip whitespace for robust comparison
+                category_lower = extracted_category.lower().strip()
+                # Cache lowercased placeholder categories
+                lower_placeholder_categories = [p.lower() for p in self.PLACEHOLDER_CATEGORIES]
+                if category_lower in lower_placeholder_categories:
+                    data['category'] = None
+            elif extracted_category is None: # If category was explicitly null or not provided
+                pass # Keep it as None or not present
+            else: # If category is not a string (e.g. number, boolean), treat as invalid
+                logger.warning(f"Invalid category type: {type(extracted_category)}. Setting to None.")
+                data['category'] = None
             
             # Map party_name to customer/vendor fields
             party_name = data.pop('party_name', None) # Use pop to remove party_name if it exists
