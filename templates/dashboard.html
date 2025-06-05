@@ -805,9 +805,14 @@
                     // Remove optimistic message if you want, or update it
                     // For now, let the AI respond about the file.
                     // addMessage(`✅ File uploaded: ${data.filename}. The AI will process it.`, 'USER');
-                    if (data.message_to_user) { // If backend sends a confirmation for user
+                    const successMessage = `✅ File "${file.name}" has been uploaded successfully!`;
+                    addMessage(successMessage, 'AI');
+                    
+                    // If backend sends additional messages, show them too
+                    if (data.message_to_user) {
                         addMessage(data.message_to_user, 'AI', data.is_html || false);
                     }
+                    
                     if (data.conversation_id) { // Update conversation ID if returned
                         conversationId = data.conversation_id;
                     }

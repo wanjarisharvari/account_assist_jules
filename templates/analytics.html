@@ -365,6 +365,7 @@
 
     </style>
 </head>
+
 <body>
     <nav class="navbar navbar-expand top-navbar">
         <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle sidebar">
@@ -392,13 +393,15 @@
             </div>
             <ul class="nav-menu list-unstyled">
                 <li class="nav-item">
-                    <a href="{% url 'dashboard' %}" class="nav-link">
-                        <i class="fas fa-comments fa-fw"></i><span>Chat</span>
+                    <a href="/dashboard" class="nav-link">
+                        <i class="fas fa-comments fa-fw"></i>
+                        <span>Chat</span>
                     </a>
                 </li>
                 <li class="nav-item active">
                     <a href="/analytics/" class="nav-link">
-                        <i class="fas fa-chart-bar fa-fw"></i><span>Analytics</span>
+                        <i class="fas fa-chart-bar fa-fw"></i>
+                        <span>Analytics</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -408,13 +411,22 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link"><i class="fas fa-history fa-fw"></i><span>Chat History</span></a>
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-history fa-fw"></i>
+                        <span>Chat History</span>
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link"><i class="fas fa-folder fa-fw"></i><span>Documents</span></a>
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-folder fa-fw"></i>
+                        <span>Documents</span>
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link"><i class="fas fa-cog fa-fw"></i><span>Settings</span></a>
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-cog fa-fw"></i>
+                        <span>Settings</span>
+                    </a>
                 </li>
             </ul>
         </div>
@@ -648,63 +660,15 @@
                 if (incomeExpensesCtx) {
                     incomeExpensesChart = new Chart(incomeExpensesCtx, {
                         type: 'line',
-                        data: { 
-                            labels: [], 
-                            datasets: [
-                                { 
-                                    label: "Income", 
-                                    data: [], 
-                                    fill: true, 
-                                    borderColor: "#28a745", // Green
-                                    backgroundColor: "rgba(40, 167, 69, 0.1)",
-                                    borderWidth: 2,
-                                    tension: 0.3,
-                                    pointRadius: 4,
-                                    pointBackgroundColor: "#28a745",
-                                    pointHoverRadius: 6,
-                                    pointHoverBackgroundColor: "#fff",
-                                    pointHoverBorderWidth: 2,
-                                    pointHoverBorderColor: "#28a745"
-                                }, 
-                                { 
-                                    label: "Expenses", 
-                                    data: [], 
-                                    fill: true, 
-                                    borderColor: "#dc3545", // Red
-                                    backgroundColor: "rgba(220, 53, 69, 0.1)",
-                                    borderWidth: 2,
-                                    tension: 0.3,
-                                    pointRadius: 4,
-                                    pointBackgroundColor: "#dc3545",
-                                    pointHoverRadius: 6,
-                                    pointHoverBackgroundColor: "#fff",
-                                    pointHoverBorderWidth: 2,
-                                    pointHoverBorderColor: "#dc3545"
-                                } 
-                            ] 
-                        },
+                        data: { labels: [], datasets: [ { label: "Income", data: [], fill: true, borderColor: "#28A745", backgroundColor: "rgba(40, 167, 69, 0.1)", lineTension: 0.3, pointRadius: 4, pointBackgroundColor: "#28A745" }, { label: "Expenses", data: [], fill: true, borderColor: "#DC3545", backgroundColor: "rgba(220, 53, 69, 0.1)", lineTension: 0.3, pointRadius: 4, pointBackgroundColor: "#DC3545" } ] },
                         options: { 
                             maintainAspectRatio: false, 
                             responsive: true, 
                             scales: { 
-                                x: { 
-                                    grid: { 
-                                        display: true,
-                                        color: 'rgba(0, 0, 0, 0.05)'
-                                    },
-                                    ticks: {
-                                        color: 'var(--text-secondary)'
-                                    }
-                                }, 
+                                x: { grid: { display: false } }, 
                                 y: { 
-                                    ticks: { 
-                                        callback: (val) => formatCurrency(val),
-                                        color: 'var(--text-secondary)'
-                                    }, 
-                                    grid: { 
-                                        color: 'rgba(0, 0, 0, 0.05)',
-                                        borderDash: [2, 2] 
-                                    } 
+                                    ticks: { callback: (val) => formatCurrency(val) }, 
+                                    grid: { color: "var(--border-color)", borderDash: [2, 2] } 
                                 } 
                             }, 
                             plugins: { 
@@ -713,39 +677,27 @@
                                     position: 'bottom', 
                                     labels: { 
                                         usePointStyle: true, 
-                                        pointStyle: 'circle',
-                                        color: 'var(--text-secondary)',
-                                        padding: 20
-                                    }
+                                        pointStyle: 'circle'
+                                    } 
                                 }, 
                                 tooltip: { 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    titleColor: '#2c3e50',
-                                    bodyColor: '#2c3e50',
-                                    borderColor: 'rgba(0, 0, 0, 0.1)',
-                                    borderWidth: 1,
-                                    padding: 12,
-                                    displayColors: true,
-                                    usePointStyle: true,
-                                    boxPadding: 6,
+                                    backgroundColor: "#FFFFFF", 
+                                    titleColor: "#000000", 
+                                    bodyColor: "#333333", 
+                                    borderColor: "#DDDDDD", 
+                                    borderWidth: 1, 
+                                    padding: 12, 
+                                    displayColors: true, 
+                                    boxPadding: 4, 
                                     callbacks: { 
-                                        label: (context) => {
-                                            let label = context.dataset.label || '';
-                                            if (label) {
-                                                label += ': ';
-                                            }
-                                            if (context.parsed.y !== null) {
-                                                label += formatCurrency(context.parsed.y);
-                                            }
-                                            return label;
-                                        }
-                                    }
+                                        label: (context) => `${context.dataset.label}: ${formatCurrency(context.raw)}` 
+                                    } 
                                 } 
                             }, 
                             interaction: { 
                                 intersect: false, 
                                 mode: 'index' 
-                            }
+                            } 
                         }
                     });
                 }
@@ -755,38 +707,36 @@
                 if (expensePieCtx) {
                     expensePieChart = new Chart(expensePieCtx, {
                         type: 'doughnut',
-                        data: { labels: [], datasets: [{ data: [], backgroundColor: [], hoverBackgroundColor: [], borderColor: '#FFFFFF', borderWidth: 2 }] },
+                        data: { labels: [], datasets: [{ data: [], backgroundColor: [], hoverBackgroundColor: [], borderColor: '#FFFFFF', borderWidth: 2, hoverBorderWidth: 3, hoverBorderColor: '#FFFFFF' }] },
                         options: { 
                             maintainAspectRatio: false, 
                             responsive: true, 
                             cutout: '70%', 
+                            onHover: (event, chartElement) => {
+                                if (chartElement.length) {
+                                    event.native.target.style.cursor = 'pointer';
+                                } else {
+                                    event.native.target.style.cursor = 'default';
+                                }
+                            },
                             plugins: { 
-                                legend: { display: false }, 
+                                legend: { 
+                                    display: false 
+                                }, 
                                 tooltip: { 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    titleColor: '#2c3e50',
-                                    bodyColor: '#2c3e50',
-                                    borderColor: 'rgba(0, 0, 0, 0.1)',
-                                    borderWidth: 1,
-                                    padding: 12,
+                                    backgroundColor: "#FFFFFF", 
+                                    titleColor: "#000000", 
+                                    bodyColor: "#333333", 
+                                    borderColor: "#DDDDDD", 
+                                    borderWidth: 1, 
+                                    padding: 10, 
                                     displayColors: true,
                                     usePointStyle: true,
-                                    boxPadding: 6,
                                     callbacks: { 
-                                        label: function(context) {
-                                            const label = context.label || '';
-                                            const value = context.raw || 0;
-                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                            const percentage = Math.round((value / total) * 100);
-                                            return `${label}: ${formatCurrency(value)} (${percentage}%)`;
-                                        }
-                                    }
+                                        label: (context) => `${context.label}: ${formatCurrency(context.raw)}` 
+                                    } 
                                 } 
-                            },
-                            interaction: {
-                                mode: 'nearest',
-                                intersect: false
-                            }
+                            } 
                         }
                     });
                 }
@@ -800,43 +750,31 @@
                             labels: [], 
                             datasets: [ 
                                 { 
-                                    label: "Projected Balance", 
-                                    data: [], 
-                                    borderColor: "var(--success-color)",
-                                    backgroundColor: "rgba(40, 167, 69, 0.1)",
-                                    type: 'line', 
-                                    tension: 0.3, 
-                                    fill: true, 
-                                    pointRadius: 4,
-                                    pointBackgroundColor: "var(--success-color)",
-                                    pointBorderColor: "#fff",
-                                    pointHoverRadius: 6,
-                                    pointHoverBackgroundColor: "#fff",
-                                    pointHoverBorderColor: "var(--success-color)",
-                                    pointHoverBorderWidth: 2,
-                                    order: 100 // Ensures it's rendered last (on top)
-                                },
-                                { 
                                     label: "Expected Income", 
                                     data: [], 
-                                    backgroundColor: "var(--primary-color)",
-                                    borderColor: "var(--primary-color)",
-                                    borderWidth: 1,
-                                    hoverBackgroundColor: "var(--primary-color)",
-                                    hoverBorderColor: "#fff",
-                                    stack: 'stack0',
-                                    order: 1
+                                    backgroundColor: "rgba(42, 82, 190, 0.7)", // Lighter transparent blue
+                                    stack: 'stack0' 
                                 }, 
                                 { 
                                     label: "Expected Expenses", 
                                     data: [], 
-                                    backgroundColor: "var(--danger-color)",
-                                    borderColor: "var(--danger-color)",
-                                    borderWidth: 1,
-                                    hoverBackgroundColor: "var(--danger-color)",
-                                    hoverBorderColor: "#fff",
-                                    stack: 'stack0',
-                                    order: 2
+                                    backgroundColor: "rgba(220, 53, 69, 0.7)", // Lighter transparent red
+                                    stack: 'stack0' 
+                                }, 
+                                { 
+                                    label: "Projected Balance", 
+                                    data: [], 
+                                    borderColor: "#28A745", // Success green
+                                    backgroundColor: "rgba(40, 167, 69, 0.1)",
+                                    type: 'line', 
+                                    tension: 0.3, 
+                                    fill: true, 
+                                    pointRadius: 4, 
+                                    pointBackgroundColor: "#28A745", // Success green
+                                    order: 0, // This will make it draw last (on top)
+                                    borderWidth: 2,
+                                    pointHoverRadius: 6,
+                                    pointBorderWidth: 2
                                 } 
                             ] 
                         },
@@ -845,80 +783,49 @@
                             responsive: true, 
                             scales: { 
                                 x: { 
-                                    grid: { 
-                                        display: false 
-                                    },
-                                    stacked: true,
-                                    ticks: {
-                                        color: 'var(--text-secondary)'
-                                    }
+                                    grid: { display: false }, 
+                                    stacked: true 
                                 }, 
                                 y: { 
                                     ticks: { 
-                                        callback: (val) => formatCurrency(val),
-                                        color: 'var(--text-secondary)'
+                                        callback: (val) => formatCurrency(val) 
                                     }, 
                                     grid: { 
-                                        color: 'rgba(0, 0, 0, 0.05)',
+                                        color: "var(--border-color)", 
                                         borderDash: [2, 2] 
-                                    },
+                                    }, 
                                     stacked: true 
                                 } 
                             }, 
                             plugins: { 
                                 legend: { 
-                                    display: true,
-                                    position: 'bottom',
-                                    labels: {
-                                        color: 'var(--text-secondary)',
-                                        usePointStyle: true,
-                                        padding: 20
-                                    }
+                                    display: false 
                                 }, 
                                 tooltip: { 
-                                    backgroundColor: 'white',
-                                    titleColor: '#2c3e50',
-                                    bodyColor: '#2c3e50',
-                                    borderColor: 'rgba(0, 0, 0, 0.1)',
-                                    borderWidth: 1,
-                                    padding: 12,
-                                    displayColors: true,
-                                    usePointStyle: true,
-                                    boxPadding: 6,
-                                    callbacks: {
-                                        label: function(context) {
-                                            let label = context.dataset.label || '';
-                                            if (label) {
-                                                label += ': ';
-                                            }
-                                            if (context.parsed.y !== null) {
-                                                label += formatCurrency(Math.abs(context.parsed.y));
-                                            }
-                                            return label;
-                                        }
-                                    }
+                                    backgroundColor: "#FFFFFF", 
+                                    titleColor: "#000000", 
+                                    bodyColor: "#333333", 
+                                    borderColor: "#DDDDDD", 
+                                    borderWidth: 1, 
+                                    padding: 12, 
+                                    displayColors: true, 
+                                    boxPadding: 4, 
+                                    mode: 'index', 
+                                    intersect: false, 
+                                    callbacks: { 
+                                        label: function(context) { 
+                                            let label = context.dataset.label || ''; 
+                                            if (label) { 
+                                                label += ': '; 
+                                            } 
+                                            const value = context.dataset.label === "Expected Expenses" ? Math.abs(context.raw) : context.raw; 
+                                            label += formatCurrency(value); 
+                                            return label; 
+                                        } 
+                                    } 
                                 } 
-                            },
-                            interaction: {
-                                mode: 'nearest',
-                                intersect: false
-                            }
+                            } 
                         }
-                    });
-                }
-
-                // Update custom legend
-                const legendContainer = document.getElementById('expensePieChartLegend');
-                if (legendContainer) {
-                    legendContainer.innerHTML = ''; // Clear old legend
-                    data.categories.forEach((label, index) => {
-                        const color = data.category_colors[index % data.category_colors.length];
-                        const legendItem = `
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="me-2" style="display: inline-block; width: 12px; height: 12px; background-color: ${color}; border-radius: 50%;"></span>
-                                <span class="small">${label}</span>
-                            </div>`;
-                        legendContainer.innerHTML += legendItem;
                     });
                 }
             }
@@ -951,63 +858,28 @@
                     expensePieChart.data.labels = data.categories;
                     expensePieChart.data.datasets[0].data = data.category_totals;
                     expensePieChart.data.datasets[0].backgroundColor = data.category_colors;
-                    expensePieChart.data.datasets[0].borderWidth = 1;
-                    expensePieChart.data.datasets[0].borderColor = '#fff';
-                    expensePieChart.data.datasets[0].hoverBackgroundColor = data.category_colors.map(color => 
-                        Chart.helpers.color(color).alpha(0.8).lighten(0.1).rgbString()
-                    );
-                    expensePieChart.data.datasets[0].hoverBorderColor = '#fff';
-                    expensePieChart.data.datasets[0].hoverOffset = 4;
+                    // You might need to generate hover colors if not provided or use Chart.js defaults
+                    expensePieChart.data.datasets[0].hoverBackgroundColor = data.category_colors.map(color => Chart.helpers.color(color).saturate(0.2).darken(0.1).rgbString());
                     expensePieChart.update();
-
+                    
                     // Update custom legend
                     const legendContainer = document.getElementById('expensePieChartLegend');
                     if (legendContainer) {
                         legendContainer.innerHTML = ''; // Clear old legend
                         data.categories.forEach((label, index) => {
                             const color = data.category_colors[index % data.category_colors.length];
-                            const legendItem = `
-                                <div class="d-flex align-items-center mb-2">
-                                    <span class="me-2" style="display: inline-block; width: 12px; height: 12px; background-color: ${color}; border-radius: 50%;"></span>
-                                    <span class="small">${label}</span>
-                                </div>`;
+                            const legendItem = `<span class="chart-legend-item"><i class="fas fa-circle" style="color: ${color}"></i> ${label}</span>`;
                             legendContainer.innerHTML += legendItem;
                         });
                     }
                 }
-
+                
                 // Cash Flow Forecast Chart
                 if (cashFlowChart && data.cash_flow_forecast) {
-                    // Define consistent colors for the datasets
-                    const colors = {
-                        income: 'rgba(40, 167, 69, 0.8)',      // Green
-                        expenses: 'rgba(220, 53, 69, 0.8)',    // Red
-                        balance: 'rgba(23, 162, 184, 0.8)'     // Teal
-                    };
-                    
                     cashFlowChart.data.labels = data.cash_flow_forecast.labels;
-                    
-                    // Update income dataset
-                    cashFlowChart.data.datasets[1].data = data.cash_flow_forecast.income;
-                    cashFlowChart.data.datasets[1].backgroundColor = colors.income;
-                    cashFlowChart.data.datasets[1].borderColor = colors.income;
-                    cashFlowChart.data.datasets[1].hoverBackgroundColor = colors.income.replace('0.8', '1');
-                    
-                    // Update expenses dataset (ensuring negative values for display)
-                    cashFlowChart.data.datasets[2].data = data.cash_flow_forecast.expenses.map(e => -Math.abs(e));
-                    cashFlowChart.data.datasets[2].backgroundColor = colors.expenses;
-                    cashFlowChart.data.datasets[2].borderColor = colors.expenses;
-                    cashFlowChart.data.datasets[2].hoverBackgroundColor = colors.expenses.replace('0.8', '1');
-                    
-                    // Update balance line
-                    cashFlowChart.data.datasets[0].data = data.cash_flow_forecast.balance;
-                    cashFlowChart.data.datasets[0].borderColor = colors.balance;
-                    cashFlowChart.data.datasets[0].backgroundColor = colors.balance.replace('0.8', '0.2');
-                    cashFlowChart.data.datasets[0].pointBackgroundColor = colors.balance;
-                    cashFlowChart.data.datasets[0].pointBorderColor = '#fff';
-                    cashFlowChart.data.datasets[0].pointHoverBackgroundColor = '#fff';
-                    cashFlowChart.data.datasets[0].pointHoverBorderColor = colors.balance;
-                    
+                    cashFlowChart.data.datasets[0].data = data.cash_flow_forecast.income;
+                    cashFlowChart.data.datasets[1].data = data.cash_flow_forecast.expenses.map(e => -Math.abs(e)); // ensure expenses are negative for stacking display
+                    cashFlowChart.data.datasets[2].data = data.cash_flow_forecast.balance;
                     cashFlowChart.update();
                 }
             }
@@ -1045,7 +917,7 @@
                             const row = `<tr>
                                 <td>${c.name.substring(0,25)}${c.name.length > 25 ? '...' : ''}</td>
                                 <td>${formatCurrency(c.outstanding_balance)}</td>
-                                <td><span class="badge ${c.is_overdue ? 'bg-danger' : 'bg-success'}">${c.is_overdue ? "Overdue" : "Current"}</span></td>
+                                <td><span class="badge ${c.is_overdue ? 'bg-danger' : 'text-muted'}">${c.is_overdue ? "Overdue" : "Up to date"}</span></td>
                             </tr>`;
                             topCustomersTableBody.innerHTML += row;
                         });
@@ -1086,7 +958,7 @@
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     const data = await response.json();
-
+                    
                     updateSummary(data.summary);
                     updateCharts(data);
                     updateTables(data);
@@ -1109,20 +981,20 @@
                     e.preventDefault();
                     const selectedPeriod = this.getAttribute('data-period');
                     const selectedText = this.textContent;
-
+                    
                     if (dateRangeButton) {
                         dateRangeButton.innerHTML = `<i class="fas fa-calendar-alt me-2"></i>${selectedText}`;
                     }
-
+                    
                     // Remove active class from all items
                     dropdownItems.forEach(i => i.classList.remove('active'));
                     // Add active class to the clicked item
                     this.classList.add('active');
-
+                    
                     fetchAnalyticsData(selectedPeriod);
                 });
             });
-
+            
             initializeCharts(); // Initialize chart structures
             fetchAnalyticsData('last_6_months'); // Initial data load for 'Last 6 Months' as it's default active
         });
